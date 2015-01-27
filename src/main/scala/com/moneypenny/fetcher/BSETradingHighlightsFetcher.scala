@@ -16,6 +16,7 @@ class BSETradingHighlightsFetcher {
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetch (startDate : String, endDate : String) = {
+    logger.info(s"Fetching BSETradingHighlights from $startDate to $endDate")
     val page = webClient.getPage("http://www.bseindia.com/markets/Equity/EQReports/Tradinghighlights_histroical.aspx?expandable=7").asInstanceOf[HtmlPage]
 
     val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtDate").asInstanceOf[HtmlInput]
@@ -34,6 +35,10 @@ class BSETradingHighlightsFetcher {
 
 object BSETradingHighlightsFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val bseTradingHighlightsFetcher = new BSETradingHighlightsFetcher
     val data = bseTradingHighlightsFetcher.fetch("01/01/1990", "01/01/2015")
     println(data)

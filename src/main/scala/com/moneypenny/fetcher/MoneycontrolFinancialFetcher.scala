@@ -4,7 +4,8 @@ import java.net.URL
 
 import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlTable, HtmlPage}
 import com.gargoylesoftware.htmlunit.{ElementNotFoundException, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
-import com.moneypenny.util.ExtractFromTable
+import com.moneypenny.util.{DomUtil, ExtractFromTable}
+import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
 import scala.collection.JavaConversions._
 import scala.collection.mutable.LinkedHashMap
@@ -14,6 +15,8 @@ import scala.collection.mutable.LinkedHashMap
  */
 class MoneycontrolFinancialFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
+  private val config = ConfigFactory.load
+
   val webClient = new WebClient(BrowserVersion.CHROME)
   webClient.getOptions().setThrowExceptionOnScriptError(false)
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
@@ -22,13 +25,17 @@ class MoneycontrolFinancialFetcher {
     page != null && !page.asText().contains("Data Not Available for Balance Sheet")
   }
 
-  def fetchData (page : HtmlPage) = {
+  def fetchData (financialType : String, page : HtmlPage) = {
     var currentPage = page
     val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
     do {
-      val standaloneHtmlTable = currentPage.getByXPath("/html/body/center[2]/div/div[1]/div[8]/div[3]/div[2]/div[2]/div/div[1]/table[3]").
-        get(0).asInstanceOf[HtmlTable]
-      returnMap ++= ExtractFromTable.extractFromHtmlTable(standaloneHtmlTable)
+      val siblingTable = DomUtil.findTableElement(page, financialType).get
+      var nextSibling = siblingTable.getNextSibling
+      while (!nextSibling.isInstanceOf[HtmlTable]) {
+        nextSibling = nextSibling.getNextSibling
+      }
+      val htmlTable = nextSibling.asInstanceOf[HtmlTable]
+      returnMap ++= ExtractFromTable.extractFromHtmlTable(htmlTable)
       val anchor = try {
         currentPage.getAnchorByText("Previous Years »")
       } catch {
@@ -41,40 +48,44 @@ class MoneycontrolFinancialFetcher {
       else
         currentPage = null
     } while (hasData(currentPage))
-    println(returnMap)
+    logger.debug(returnMap)
     returnMap
 
   }
 
-  def fetchStandaloneData (url : String) = {
-    println(s"Extracting fetchStandaloneData - $url")
+  def fetchStandaloneData (financialType : String, url : String) = {
+    logger.info(s"Extracting fetchStandaloneData - $url")
     val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
-    fetchData(webClient.getPage(url).asInstanceOf[HtmlPage])
+    fetchData(financialType, webClient.getPage(url).asInstanceOf[HtmlPage])
   }
 
-  def fetchConsolidatedData (url : String) = {
-    println(s"Extracting fetchConsolidatedData - $url")
+  def fetchConsolidatedData (financialType : String, url : String) = {
+    logger.info(s"Extracting fetchConsolidatedData - $url")
     val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
     val page = webClient.getPage(url).asInstanceOf[HtmlPage]
     val consolidatedPageAnchor = page.getAnchorByText("Consolidated")
     val consolidatedPage = webClient.getPage(page.getFullyQualifiedUrl(consolidatedPageAnchor.getHrefAttribute)).asInstanceOf[HtmlPage]
-    fetchData(consolidatedPage)
+    fetchData(financialType, consolidatedPage)
   }
 
   def fetch (financialType : String, url : String) = {
-    println(s"Extracting $financialType - $url")
+    logger.info(s"Extracting $financialType - $url")
     val returnMap = LinkedHashMap.empty[String, LinkedHashMap[(String, String), String]]
     val page = webClient.getPage(url).asInstanceOf[HtmlPage]
     if (page.asText().contains("Standalone"))
-      returnMap.put(financialType + "-Standalone", fetchStandaloneData(url))
+      returnMap.put(financialType + "-Standalone", fetchStandaloneData(financialType, url))
     if (page.asText().contains("Consolidated"))
-      returnMap.put(financialType + "-Consolidated", fetchConsolidatedData(url))
+      returnMap.put(financialType + "-Consolidated", fetchConsolidatedData(financialType, url))
     returnMap
   }
 }
 
 object MoneycontrolFinancialFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val returnMap = LinkedHashMap.empty[String, LinkedHashMap[(String, String), String]]
     val mcBalSheetFetcher = new MoneycontrolFinancialFetcher
     val finList = MoneycontrolFinListFetcher.fetchFinURLs("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01")

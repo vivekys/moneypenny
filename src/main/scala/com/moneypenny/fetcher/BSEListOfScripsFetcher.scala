@@ -2,16 +2,19 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlImageInput, HtmlSelect, HtmlPage}
 import com.gargoylesoftware.htmlunit.{Page, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import org.apache.log4j.Logger
 
 /**
  * Created by vives on 12/31/14.
  */
 class BSEListOfScripsFetcher {
   val webClient = new WebClient(BrowserVersion.CHROME)
+  val logger = Logger.getLogger(this.getClass.getSimpleName)
   webClient.getOptions().setThrowExceptionOnScriptError(false)
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetch = {
+    logger.info("Fetching list of Scrips")
     val page = webClient.getPage("http://www.bseindia.com/corporates/List_Scrips.aspx?expandable=1").asInstanceOf[HtmlPage]
     val htmlSelect = page.getElementByName("ctl00$ContentPlaceHolder1$ddSegment").asInstanceOf[HtmlSelect]
     val opt = htmlSelect.getOptionByValue("Equity")
@@ -28,6 +31,10 @@ class BSEListOfScripsFetcher {
 
 object BSEListOfScripsFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val bseListOfScripsFetcher = new BSEListOfScripsFetcher
     val bseListOfScrips = bseListOfScripsFetcher.fetch
     println(bseListOfScrips)

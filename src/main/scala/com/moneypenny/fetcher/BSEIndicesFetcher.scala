@@ -2,6 +2,8 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{WebClient, BrowserVersion}
+import com.typesafe.config.ConfigFactory
+import org.apache.log4j.Logger
 import scala.collection.JavaConversions._
 
 
@@ -9,6 +11,7 @@ import scala.collection.JavaConversions._
  * Created by vives on 12/29/14.
  */
 class BSEIndicesFetcher {
+  val logger = Logger.getLogger(this.getClass.getSimpleName)
   val webClient = new WebClient(BrowserVersion.CHROME)
 
   def fetchOptions = {
@@ -43,6 +46,7 @@ class BSEIndicesFetcher {
   }
 
   def fetch (startDate : String, endDate : String) = {
+    logger.info(s"Fetching Indices from $startDate to $endDate")
     val returnMap = scala.collection.mutable.Map.empty[String, String]
     val options = fetchOptions
     for (opt <- options) {
@@ -55,6 +59,10 @@ class BSEIndicesFetcher {
 
 object BSEIndicesFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val bseIndicesFetcher = new BSEIndicesFetcher
     val indices = bseIndicesFetcher.fetch("01/01/1990", "31/12/2014")
     println(indices)

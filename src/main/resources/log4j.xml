@@ -19,8 +19,8 @@
 
     <appender name="File" class="org.apache.log4j.rolling.RollingFileAppender">
         <!-- The active file to log to -->
-        <param name="threshold" value="INFO"/>
-        <param name="file" value="/var/local/crawler/crawler.log"/>
+        <param name="threshold" value="DEBUG"/>
+        <param name="file" value="/var/local/moneypenny/crawler.log"/>
         <param name="append" value="true"/>
         <param name="encoding" value="UTF-8"/>
 
@@ -35,8 +35,8 @@
     </appender>
 
     <root>
-        <priority value="fatal"/>
-        <appender-ref ref="Async"/>
-        <appender-ref ref="STDOUT"/>
+        <priority value="debug"/>
+        <appender-ref ref="File"/>
+        <!--<appender-ref ref="STDOUT"/>-->
     </root>
 </log4j:configuration>
