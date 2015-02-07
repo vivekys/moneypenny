@@ -20,7 +20,7 @@ class BSEEndOfDayStockPriceFetcher {
   }
 
   def fetchDataForId (startDate : String, endDate : String, id : String) = {
-    logger.fatal(String.format("Fetching data for %s from %s till %s", id, startDate, endDate))
+    logger.info(s"Fetching data for $id from $startDate till $endDate")
     val page = webClient.getPage("http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=0").asInstanceOf[HtmlPage]
     val equityRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rad_no1").asInstanceOf[HtmlRadioButtonInput]
     equityRadioButton.setChecked(true)
@@ -65,8 +65,12 @@ class BSEEndOfDayStockPriceFetcher {
 
 object BSEEndOfDayStockPriceFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val bseEndOfDayStockPriceFetcher = new BSEEndOfDayStockPriceFetcher
-    val data = bseEndOfDayStockPriceFetcher.fetch("31/12/2014", "31/12/2014")
+    val data = bseEndOfDayStockPriceFetcher.fetch("28/01/2015", "28/01/2015")
     println(data)
   }
 }
