@@ -1,11 +1,10 @@
 package com.moneypenny.fetcher
 
-import java.util
-
-import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, DomNodeList, HtmlUnorderedList, HtmlPage}
-import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.html.{DomNodeList, HtmlAnchor, HtmlPage, HtmlUnorderedList}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
+
 import scala.collection.JavaConversions._
 
 /**
@@ -22,6 +21,21 @@ object MoneycontrolFinListFetcher {
   def isActive (pageContent : String) = {
     ! (pageContent.contains("is not traded on BSE in the last 30 days") ||
         pageContent.contains("is not traded on NSE in the last 30 days"))
+  }
+
+  def fetchGetMetaData (name : String, url : String) = {
+    logger.info("Fetching Moneycontrol stock Metadata")
+    val returnMap = scala.collection.mutable.Map.empty[String, Map[String, String]]
+    val page = webClient.getPage(url).asInstanceOf[HtmlPage]
+
+    val meta = page.asText().split("\n").filter(line => {
+                  line.contains("BSE: ") || line.contains("NSE: ") || line.contains("ISIN: ") || line.contains("SECTOR: ")
+               }).map(_.split('|')).flatMap{case arrStr : Array[String] => arrStr}.map(ele => {
+                  val kv = ele.split(":")
+                  (kv(0), kv(1).trim)
+               }).toMap
+    returnMap.put(name, meta)
+    returnMap
   }
 
   def fetchFinURLs (url : String) = {
@@ -49,7 +63,8 @@ object MoneycontrolFinListFetcher {
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 //    println(fetchFinURLs ("http://www.moneycontrol.com/india/stockpricequote/financeleasinghirepurchase/akscredits/AKS"))
-    println(fetchFinURLs ("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01"))
+//    println(fetchFinURLs ("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01"))
+    fetchGetMetaData("Tata Motors", "http://www.moneycontrol.com/india/stockpricequote/autolcvshcvs/tatamotors/TM03")
   }
 
 }

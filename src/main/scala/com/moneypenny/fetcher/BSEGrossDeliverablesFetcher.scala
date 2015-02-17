@@ -14,6 +14,9 @@ import scala.collection.JavaConversions._
 /**
  * Created by vives on 1/1/15.
  */
+
+//Redundent data
+
 class BSEGrossDeliverablesFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
   private val config = ConfigFactory.load

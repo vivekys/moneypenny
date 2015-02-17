@@ -1,10 +1,8 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
-import org.apache.commons.csv.{CSVFormat, CSVParser}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import org.apache.log4j.Logger
-import scala.collection.JavaConversions._
 
 /**
  * Created by vives on 1/1/15.
@@ -36,6 +34,10 @@ class BSEClientCategorywiseTurnoverFetcher {
 
 object BSEClientCategorywiseTurnoverFetcher {
   def main (args: Array[String]) {
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
     val clientCategorywiseTurnoverFetcher = new BSEClientCategorywiseTurnoverFetcher
     val data = clientCategorywiseTurnoverFetcher.fetch("31/12/2014", "31/12/2014")
     println(data)

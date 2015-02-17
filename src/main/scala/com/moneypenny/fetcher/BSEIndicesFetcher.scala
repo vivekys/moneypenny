@@ -1,9 +1,9 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{WebClient, BrowserVersion}
-import com.typesafe.config.ConfigFactory
+import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
 import org.apache.log4j.Logger
+
 import scala.collection.JavaConversions._
 
 
@@ -13,6 +13,8 @@ import scala.collection.JavaConversions._
 class BSEIndicesFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
   val webClient = new WebClient(BrowserVersion.CHROME)
+  webClient.getOptions().setThrowExceptionOnScriptError(false)
+  webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetchOptions = {
     val page = webClient.getPage("http://www.bseindia.com/indices/IndexArchiveData.aspx?expandable=1").asInstanceOf[HtmlPage]
@@ -24,6 +26,7 @@ class BSEIndicesFetcher {
 
   }
   def fetchDataForOption (startDate : String, endDate : String, option : String) = {
+    logger.info(s"Fetching $option from $startDate to $endDate")
     val page = webClient.getPage("http://www.bseindia.com/indices/IndexArchiveData.aspx?expandable=1").asInstanceOf[HtmlPage]
     val htmlTable = page.getHtmlElementById("DMY").asInstanceOf[HtmlTable]
     val htmlSelect = page.getElementByName("ctl00$ContentPlaceHolder1$ddlIndex").asInstanceOf[HtmlSelect]
@@ -64,7 +67,7 @@ object BSEIndicesFetcher {
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
     val bseIndicesFetcher = new BSEIndicesFetcher
-    val indices = bseIndicesFetcher.fetch("01/01/1990", "31/12/2014")
+    val indices = bseIndicesFetcher.fetch("01/01/2015", "01/02/2015")
     println(indices)
   }
 }

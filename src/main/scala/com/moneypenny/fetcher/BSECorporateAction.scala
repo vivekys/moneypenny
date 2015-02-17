@@ -56,7 +56,9 @@ class BSECorporateAction {
         val scrip = csvRecord.get(1)
         val data = fetchCAForId(startDate, endDate, scrip)
         logger.info(s"CA for $scrip from $startDate to $endDate are")
-        logger.info(data)
+        val (key, value) = ((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
+        logger.info(s"key - $key")
+        logger.info(s"value - $value")
         returnMap.put((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
       }
     }

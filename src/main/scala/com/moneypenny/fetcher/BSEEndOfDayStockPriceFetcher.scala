@@ -54,8 +54,14 @@ class BSEEndOfDayStockPriceFetcher {
     val csvParser = CSVParser.parse(list, CSVFormat.EXCEL.withHeader())
     for (csvRecord <- csvParser.getRecords) {
       if (csvRecord.get("Status") != "Delisted" && csvRecord.get("Status") != "N") {
-        val data = fetchDataForId(startDate, endDate, csvRecord.get(1))
-        returnMap.put((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
+        val scripCode = csvRecord.get(0).toLong
+        val scripId = csvRecord.get(1)
+        val scripName = csvRecord.get(2)
+        val data = fetchDataForId(startDate, endDate, scripId)
+        logger.info(s"$scripCode, $scripId, $scripName - $data")
+        val dataParser = CSVParser.parse(data, CSVFormat.EXCEL.withHeader())
+        println(dataParser.getHeaderMap)
+        returnMap.put((scripCode, scripId, scripName), data)
       }
     }
     returnMap

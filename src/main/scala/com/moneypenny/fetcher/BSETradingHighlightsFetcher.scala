@@ -40,7 +40,7 @@ object BSETradingHighlightsFetcher {
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
     val bseTradingHighlightsFetcher = new BSETradingHighlightsFetcher
-    val data = bseTradingHighlightsFetcher.fetch("01/01/1990", "01/01/2015")
+    val data = bseTradingHighlightsFetcher.fetch("01/01/2015", "13/02/2015")
     println(data)
   }
 }

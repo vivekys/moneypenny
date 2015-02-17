@@ -1,15 +1,86 @@
 package com.moneypenny.model
 
+import java.util.Date
+
+import com.moneypenny.db.MongoContext
+import com.mongodb.DBObject
+import com.mongodb.casbah.Imports._
+import com.mongodb.casbah.MongoCollection
+import com.mongodb.casbah.commons.MongoDBObject
+import com.novus.salat._
+import com.novus.salat.global._
+import org.joda.time.format.DateTimeFormat
+
 /**
  * Created by vives on 1/1/15.
  */
 //http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=1
-case class BSEClientCategorywiseTurnover (tradeDate : String,	clientsBuy : Double,	clientsSales : Double, clientsNet	: Double,
-NRIBuy : Double,	NRISales : Double,	NRINet : Double,	proprietaryBuy : Double, proprietarySales : Double,
-ProprietaryNet : Double,	IFIsBuy : Double,	IFIsSales : Double, IFIsNet : Double, 	banksBuy : Double,
-banksSales : Double,	banksNet : Double, insuranceBuy : Double, insuranceSales : Double,	insuranceNet : Double,
-DIIBuy : Double, DIISales : Double,	DIINet : Double) {
+case class BSEClientCategorywiseTurnoverKey (tradeDate : Date)
 
+case class BSEClientCategorywiseTurnover (_id : BSEClientCategorywiseTurnoverKey,
+                                          clientsBuy : Double, clientsSales : Double, clientsNet	: Double,
+                                          nriBuy : Double, nriSales : Double, nriNet : Double,
+                                          proprietaryBuy : Double, proprietarySales : Double, ProprietaryNet : Double,
+                                          IFIsBuy : Double,	IFIsSales : Double, IFIsNet : Double,
+                                          banksBuy : Double, banksSales : Double,	banksNet : Double,
+                                          insuranceBuy : Double, insuranceSales : Double,	insuranceNet : Double,
+                                          DIIBuy : Double, DIISales : Double,	DIINet : Double)
+
+object BSEClientCategorywiseTurnoverMap {
+  def toBson(bseClientCategorywiseTurnover : BSEClientCategorywiseTurnover) = {
+    grater[BSEClientCategorywiseTurnover].asDBObject(bseClientCategorywiseTurnover)
+  }
+
+  def fromBsom(o: DBObject) : BSEClientCategorywiseTurnover = {
+    grater[BSEClientCategorywiseTurnover].asObject(o)
+  }
+}
+
+class BSEClientCategorywiseTurnoverDAO (collection : MongoCollection) {
+  def insert(bseClientCategorywiseTurnover : BSEClientCategorywiseTurnover) = {
+    val doc = BSEClientCategorywiseTurnoverMap.toBson(bseClientCategorywiseTurnover)
+    collection.insert(doc)
+  }
+
+  def update(bseClientCategorywiseTurnover : BSEClientCategorywiseTurnover) = {
+    val query = MongoDBObject("_id.tradeDate" -> bseClientCategorywiseTurnover._id.tradeDate)
+    val doc = BSEClientCategorywiseTurnoverMap.toBson(bseClientCategorywiseTurnover)
+    collection.update(query, doc, upsert=true)
+  }
+
+  def findOne (key : BSEClientCategorywiseTurnoverKey) : Option[BSEClientCategorywiseTurnover] = {
+    val doc = collection.findOne(MongoDBObject("_id.tradeDate" -> key.tradeDate)).getOrElse(return None)
+    Some(BSEClientCategorywiseTurnoverMap.fromBsom(doc))
+  }
 }
 
 
+object BSEClientCategorywiseTurnoverDAOTest {
+  def main (args: Array[String]) {
+    import com.mongodb.casbah.commons.conversions.scala._
+    RegisterConversionHelpers()
+    RegisterJodaLocalDateTimeConversionHelpers
+
+    org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
+    org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
+    org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
+
+    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
+    val tradeDate = dtf.parseLocalDateTime("28-January-2015 15:45:00")
+
+    val key = BSEClientCategorywiseTurnoverKey(tradeDate.toDate)
+    val bseClientCategorywiseTurnover = BSEClientCategorywiseTurnover(key, 1621.35,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
+
+    val context = new MongoContext
+    context.connect()
+
+    val dao = new BSEClientCategorywiseTurnoverDAO(context.test_coll)
+
+    dao.insert(bseClientCategorywiseTurnover)
+
+    println(dao.findOne(key))
+    val bseClientCategorywiseTurnoverUpdated = BSEClientCategorywiseTurnover(key, 0,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
+    dao.update(bseClientCategorywiseTurnoverUpdated)
+    println(dao.findOne(key))
+  }
+}

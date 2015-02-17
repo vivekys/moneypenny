@@ -90,8 +90,9 @@ object MoneycontrolFinancialFetcher {
     val mcBalSheetFetcher = new MoneycontrolFinancialFetcher
     val finList = MoneycontrolFinListFetcher.fetchFinURLs("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01")
 
+//    mcBalSheetFetcher.fetch("Nine Monthly Results", "http://www.moneycontrol.com/financials/akcapitalservices/results/nine-months/AKC01#AKC01")
     for ((k,v) <- finList) {
-      if (k != "Capital Structure")
+      if (!k.contains("Capital Structure") && !k.contains("Nine Monthly Results"))
       returnMap ++= mcBalSheetFetcher.fetch(k, v)
     }
     println(returnMap)
