@@ -3,6 +3,7 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -48,15 +49,32 @@ class BSETradingHighlightsDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseTradingHighlightsList : List[BSETradingHighlights]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseTradingHighlightsList map {
+      case bseTradingHighlights => builder.insert(BSETradingHighlightsMap.toBson(bseTradingHighlights))
+    }
+    builder.execute()
+  }
+
   def update(bseTradingHighlights : BSETradingHighlights) = {
     val query = MongoDBObject("_id.date" -> bseTradingHighlights._id.date)
     val doc = BSETradingHighlightsMap.toBson(bseTradingHighlights)
     collection.update(query, doc, upsert=true)
   }
 
+  def bulkUpdate (bseTradingHighlightsList : List[BSETradingHighlights]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseTradingHighlightsList map {
+      case bseTradingHighlights => builder.find(MongoDBObject("_id.date" -> bseTradingHighlights._id.date)).
+        upsert().replaceOne(MongoDBObject(bseTradingHighlights.toStringWithFields.filterKeys(_ != "_id").toList))
+    }
+    builder.execute()
+  }
+
   def findOne (key : BSETradingHighlightsKey) : Option[BSETradingHighlights] = {
-    val doc = collection.findOne(MongoDBObject("_id.date" -> key.date,
-      "_id.date" -> key.date)).getOrElse(return None)
+    val doc = collection.findOne(MongoDBObject("_id.date" -> key.date)).getOrElse(return None)
     Some(BSETradingHighlightsMap.fromBsom(doc))
   }
 }
@@ -86,7 +104,7 @@ object BSETradingHighlightsDAOManagerTest {
 
     println(dao.findOne(key))
     val bseTradingHighlightsUpdated = BSETradingHighlights(key, 0,2323583,22.41,1934.25,1886,0.62,1057,0.35,117,0.04,205,291,134,61)
-    dao.update(bseTradingHighlightsUpdated)
+    dao.bulkUpdate(List(bseTradingHighlightsUpdated))
     println(dao.findOne(key))
 
   }

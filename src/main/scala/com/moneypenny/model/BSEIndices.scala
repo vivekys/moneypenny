@@ -3,6 +3,7 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -10,6 +11,7 @@ import com.mongodb.casbah.commons.MongoDBObject
 import com.novus.salat._
 import com.novus.salat.global._
 import org.joda.time.format.DateTimeFormat
+
 
 /**
  * Created by vives on 11/30/14.
@@ -35,6 +37,14 @@ class BSEIndicesDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseIndicesList : List[BSEIndices]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseIndicesList map {
+      case bseIndices => builder.insert(BSEIndicesMap.toBson(bseIndices))
+    }
+    builder.execute()
+  }
+
   def update(bseIndices : BSEIndices) = {
     val query = MongoDBObject("_id.index" -> bseIndices._id.index,
       "_id.date" -> bseIndices._id.date)
@@ -42,10 +52,25 @@ class BSEIndicesDAO (collection : MongoCollection) {
     collection.update(query, doc, upsert=true)
   }
 
+  def bulkUpdate (bseIndicesList : List[BSEIndices]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseIndicesList map {
+      case bseIndices => builder.find(MongoDBObject("_id.index" -> bseIndices._id.index,
+        "_id.date" -> bseIndices._id.date)).upsert().replaceOne(
+          MongoDBObject(bseIndices.toStringWithFields.filterKeys(_ != "_id").toList))
+    }
+    builder.execute()
+  }
+
   def findOne (key : BSEIndicesKey) : Option[BSEIndices] = {
     val doc = collection.findOne(MongoDBObject("_id.index" -> key.index,
       "_id.date" -> key.date)).getOrElse(return None)
     Some(BSEIndicesMap.fromBsom(doc))
+  }
+
+  def count = {
+    collection.count()
   }
 }
 
@@ -60,6 +85,7 @@ object BSEIndicesDAOManagerTest {
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
+
     val localDate = dtf.parseLocalDateTime("1-January-2015 15:45:00")
     val key = BSEIndicesKey("S&P BSE OIL & GAS", localDate.toDate)
     val bseIndices = BSEIndices(key, 9853.46,9936.45,9851.97,9904.86)
@@ -73,7 +99,7 @@ object BSEIndicesDAOManagerTest {
 
     println(dao.findOne(key))
     val bseIndicesUpdated = BSEIndices(key, 0,0,0,0)
-    dao.update(bseIndicesUpdated)
+    dao.bulkUpdate(List(bseIndicesUpdated))
     println(dao.findOne(key))
 
   }

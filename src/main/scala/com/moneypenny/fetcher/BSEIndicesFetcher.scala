@@ -2,7 +2,10 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.moneypenny.model.{BSEIndices, BSEIndicesKey}
+import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
+import org.joda.time.format.DateTimeFormat
 
 import scala.collection.JavaConversions._
 
@@ -56,18 +59,40 @@ class BSEIndicesFetcher {
       val kv = fetchDataForOption(startDate, endDate, opt.getValueAttribute)
       returnMap.put(kv._1, kv._2)
     }
-    returnMap
+    returnMap.toMap
   }
 }
 
 object BSEIndicesFetcher {
   def main (args: Array[String]) {
+    val logger = Logger.getLogger(this.getClass.getSimpleName)
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
     val bseIndicesFetcher = new BSEIndicesFetcher
-    val indices = bseIndicesFetcher.fetch("01/01/2015", "01/02/2015")
-    println(indices)
+    val indices = bseIndicesFetcher.fetch("01/01/1990", "22/02/2015")
+
+    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
+
+    val bseIndicesList =  indices map {
+        case (index, data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+          csvRecord =>
+            val dateStr = csvRecord.get("Date") + " 15:45:00"
+            val bseIndicesKey = new BSEIndicesKey(index, dtf.parseLocalDateTime(dateStr).toDate)
+            val bseIndices = new BSEIndices(bseIndicesKey,
+              if (csvRecord.get("Open").length == 0)  0 else csvRecord.get("Open").toDouble,
+              if (csvRecord.get("High").length == 0)  0 else csvRecord.get("High").toDouble,
+              if (csvRecord.get("Low").length == 0)  0 else csvRecord.get("Low").toDouble,
+              if (csvRecord.get("Close").length == 0)  0 else csvRecord.get("Close").toDouble)
+            bseIndices
+          }
+        } flatMap {
+            case ar => ar.toList
+          }
+
+    bseIndicesList map {
+      case x => logger.info(x)
+    }
   }
 }

@@ -18,8 +18,8 @@ case class FinancialsKey (name : String, financial : String, financialType : Str
 case class Financials (_id : FinancialsKey, data : Map[String, String])
 
 object FinancialsMap {
-  def toBson(balanceSheet : Financials) = {
-    grater[Financials].asDBObject(balanceSheet)
+  def toBson(financials : Financials) = {
+    grater[Financials].asDBObject(financials)
   }
 
   def fromBsom(o: DBObject) : Financials = {
@@ -28,17 +28,17 @@ object FinancialsMap {
 }
 
 class FinancialsDAO (collection : MongoCollection) {
-  def insert(balanceSheet : Financials) = {
-    val doc = FinancialsMap.toBson(balanceSheet)
+  def insert(financials : Financials) = {
+    val doc = FinancialsMap.toBson(financials)
     collection.insert(doc)
   }
 
-  def update(balanceSheet : Financials) = {
-    val query = MongoDBObject("_id.name" -> balanceSheet._id.name,
-      "_id.financial" -> balanceSheet._id.financial,
-      "_id.financialType" -> balanceSheet._id.financialType,
-      "_id.fyDate" -> balanceSheet._id.fyDate)
-    val doc = FinancialsMap.toBson(balanceSheet)
+  def update(financials : Financials) = {
+    val query = MongoDBObject("_id.name" -> financials._id.name,
+      "_id.financial" -> financials._id.financial,
+      "_id.financialType" -> financials._id.financialType,
+      "_id.fyDate" -> financials._id.fyDate)
+    val doc = FinancialsMap.toBson(financials)
     collection.update(query, doc, upsert=true)
   }
 

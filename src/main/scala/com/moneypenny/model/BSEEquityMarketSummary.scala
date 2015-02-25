@@ -3,6 +3,7 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -37,11 +38,30 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseEquityMarketSummaryList map {
+      case bseEquityMarketSummary => builder.insert(BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary))
+    }
+    builder.execute()
+  }
+
   def update(bseEquityMarketSummary : BSEEquityMarketSummary) = {
     val query = MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)
     val doc = BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary)
     collection.update(query, doc, upsert=true)
   }
+
+  def bulkUpdate (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseEquityMarketSummaryList map {
+      case bseEquityMarketSummary => builder.find(MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)).
+        upsert().replaceOne(MongoDBObject(bseEquityMarketSummary.toStringWithFields.filterKeys(_ != "_id").toList))
+    }
+    builder.execute()
+  }
+
 
   def findOne (key : BSEEquityMarketSummaryKey) : Option[BSEEquityMarketSummary] = {
     val doc = collection.findOne(MongoDBObject("_id.date" -> key.date)).getOrElse(return None)
@@ -54,7 +74,6 @@ object BSEEquityMarketSummaryDAOTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
     RegisterConversionHelpers()
-    RegisterJodaLocalDateTimeConversionHelpers
 
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
@@ -75,7 +94,7 @@ object BSEEquityMarketSummaryDAOTest {
 
     println(dao.findOne(key))
     val bseEquityMarketSummaryUpdated = BSEEquityMarketSummary(key,3106, 0, 324369103, 30377540314.00)
-    dao.update(bseEquityMarketSummaryUpdated)
+    dao.bulkUpdate(List(bseEquityMarketSummaryUpdated))
     println(dao.findOne(key))
   }
 }

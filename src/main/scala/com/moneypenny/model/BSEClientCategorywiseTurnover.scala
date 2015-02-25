@@ -3,6 +3,7 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -20,7 +21,7 @@ case class BSEClientCategorywiseTurnoverKey (tradeDate : Date)
 case class BSEClientCategorywiseTurnover (_id : BSEClientCategorywiseTurnoverKey,
                                           clientsBuy : Double, clientsSales : Double, clientsNet	: Double,
                                           nriBuy : Double, nriSales : Double, nriNet : Double,
-                                          proprietaryBuy : Double, proprietarySales : Double, ProprietaryNet : Double,
+                                          proprietaryBuy : Double, proprietarySales : Double, proprietaryNet : Double,
                                           IFIsBuy : Double,	IFIsSales : Double, IFIsNet : Double,
                                           banksBuy : Double, banksSales : Double,	banksNet : Double,
                                           insuranceBuy : Double, insuranceSales : Double,	insuranceNet : Double,
@@ -42,10 +43,30 @@ class BSEClientCategorywiseTurnoverDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseClientCategorywiseTurnoverList : List[BSEClientCategorywiseTurnover]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseClientCategorywiseTurnoverList map {
+      case bseClientCategorywiseTurnover => builder.insert(BSEClientCategorywiseTurnoverMap.toBson(bseClientCategorywiseTurnover))
+    }
+    builder.execute()
+  }
+
+
   def update(bseClientCategorywiseTurnover : BSEClientCategorywiseTurnover) = {
     val query = MongoDBObject("_id.tradeDate" -> bseClientCategorywiseTurnover._id.tradeDate)
     val doc = BSEClientCategorywiseTurnoverMap.toBson(bseClientCategorywiseTurnover)
     collection.update(query, doc, upsert=true)
+  }
+
+  def bulkUpdate (bseClientCategorywiseTurnoverList : List[BSEClientCategorywiseTurnover]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseClientCategorywiseTurnoverList map {
+      case bseClientCategorywiseTurnover => builder.find(
+        MongoDBObject("_id.tradeDate" -> bseClientCategorywiseTurnover._id.tradeDate)).upsert().replaceOne(
+          MongoDBObject(bseClientCategorywiseTurnover.toStringWithFields.filterKeys(_ != "_id").toList))
+    }
+    builder.execute()
   }
 
   def findOne (key : BSEClientCategorywiseTurnoverKey) : Option[BSEClientCategorywiseTurnover] = {
@@ -59,7 +80,6 @@ object BSEClientCategorywiseTurnoverDAOTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
     RegisterConversionHelpers()
-    RegisterJodaLocalDateTimeConversionHelpers
 
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
@@ -80,7 +100,7 @@ object BSEClientCategorywiseTurnoverDAOTest {
 
     println(dao.findOne(key))
     val bseClientCategorywiseTurnoverUpdated = BSEClientCategorywiseTurnover(key, 0,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
-    dao.update(bseClientCategorywiseTurnoverUpdated)
+    dao.bulkUpdate(List(bseClientCategorywiseTurnoverUpdated))
     println(dao.findOne(key))
   }
 }

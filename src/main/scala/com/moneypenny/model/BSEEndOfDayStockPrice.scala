@@ -1,6 +1,7 @@
 package com.moneypenny.model
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -28,6 +29,7 @@ case class BSEEndOfDayStockPrice(_id: BSEEndOfDayStockPriceKey, openPrice : Doub
                                  closeOpenDiff : Double)
 
 object BSEEndOfDayStockPriceMap {
+
   def toBson(bseEndOfDayStockPrice : BSEEndOfDayStockPrice) = {
     grater[BSEEndOfDayStockPrice].asDBObject(bseEndOfDayStockPrice)
   }
@@ -44,6 +46,14 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseEndOfDayStockPriceList map {
+      case bseEndOfDayStockPrice => builder.insert(BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice))
+    }
+    builder.execute()
+  }
+
   def update(bseEndOfDayStockPrice : BSEEndOfDayStockPrice) = {
     val query = MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
       "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
@@ -52,6 +62,20 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     val doc = BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice)
     collection.update(query, doc, upsert=true)
   }
+
+  def bulkUpdate (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseEndOfDayStockPriceList map {
+      case bseEndOfDayStockPrice => builder.find(MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
+        "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
+        "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
+        "_id.date" -> bseEndOfDayStockPrice._id.date)).upsert().replaceOne(
+          MongoDBObject(bseEndOfDayStockPrice.toStringWithFields.filterKeys(_ != "_id").toList))
+    }
+    builder.execute()
+  }
+
 
   def findOne (key : BSEEndOfDayStockPriceKey) : Option[BSEEndOfDayStockPrice] = {
     val doc = collection.findOne(MongoDBObject("_id.scripCode" -> key.scripCode,
@@ -77,12 +101,11 @@ object BSEEndOfDayStockPriceDAOManagerTest {
     context.connect()
 
     val dao = new BSEEndOfDayStockPriceDAO(context.test_coll)
-
     dao.insert(bseEndOfDayStockPrice)
-
     println(dao.findOne(key))
+
     val bseEndOfDayStockPriceUpdated = BSEEndOfDayStockPrice(key, 3.7,3.62,3.27,3.50,3.497786522380718150,4066,31,10156.00,3960,97.39,0.35,0.23)
-    dao.update(bseEndOfDayStockPriceUpdated)
+    dao.bulkUpdate(List(bseEndOfDayStockPriceUpdated))
     println(dao.findOne(key))
 
   }

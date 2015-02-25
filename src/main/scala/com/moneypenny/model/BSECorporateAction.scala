@@ -3,6 +3,7 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -42,6 +43,14 @@ class BSECorporateActionDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseCorporateActionList : List[BSECorporateAction]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    bseCorporateActionList map {
+      case bseCorporateAction => builder.insert(BSECorporateActionMap.toBson(bseCorporateAction))
+    }
+    builder.execute()
+  }
+
   def update(bseCorporateAction : BSECorporateAction) = {
     val query = MongoDBObject("_id.scripCode" -> bseCorporateAction._id.scripCode,
       "_id.scripId" -> bseCorporateAction._id.scripId,
@@ -49,6 +58,20 @@ class BSECorporateActionDAO (collection : MongoCollection) {
       "_id.date" -> bseCorporateAction._id.date)
     val doc = BSECorporateActionMap.toBson(bseCorporateAction)
     collection.update(query, doc, upsert=true)
+  }
+
+  def bulkUpdate (bseCorporateActionList : List[BSECorporateAction]) = {
+    import CaseClassToMapImplicits._
+    val builder = collection.initializeOrderedBulkOperation
+    bseCorporateActionList map {
+      case bseCorporateAction => builder.find(MongoDBObject("_id.scripCode" -> bseCorporateAction._id.scripCode,
+        "_id.scripId" -> bseCorporateAction._id.scripId,
+        "_id.scripName" -> bseCorporateAction._id.scripName,
+        "_id.date" -> bseCorporateAction._id.date)).upsert().replaceOne(
+          MongoDBObject(bseCorporateAction.toStringWithFields.filterKeys(_ != "_id").toList)
+        )
+    }
+    builder.execute()
   }
 
   def findOne (key : BSECorporateActionKey) : Option[BSECorporateAction] = {
@@ -64,7 +87,6 @@ object BSECorporateActionDAOTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
     RegisterConversionHelpers()
-    RegisterJodaLocalDateTimeConversionHelpers
 
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
@@ -86,7 +108,8 @@ object BSECorporateActionDAOTest {
 
     println(dao.findOne(key))
     val bseCorporateActionUpdated = BSECorporateAction(key, Some(localDate.toDate),None,None,None,None,None,None,null)
-    dao.update(bseCorporateActionUpdated)
+    dao.bulkUpdate(List(bseCorporateActionUpdated))
     println(dao.findOne(key))
   }
 }
+
