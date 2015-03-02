@@ -1,7 +1,7 @@
 package com.moneypenny.fetcher
 
-import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlImageInput, HtmlSelect, HtmlPage}
-import com.gargoylesoftware.htmlunit.{Page, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlImageInput, HtmlPage, HtmlSelect}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
 import org.apache.log4j.Logger
 
 /**

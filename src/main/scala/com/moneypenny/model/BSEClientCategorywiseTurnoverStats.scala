@@ -5,7 +5,6 @@ package com.moneypenny.model
  */
 import java.util.Date
 
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -49,13 +48,12 @@ class BSEClientCategorywiseTurnoverStatsDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate(bseClientCategorywiseTurnoverStatsList : List[BSEClientCategorywiseTurnoverStats]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseClientCategorywiseTurnoverStatsList map {
       case bseClientCategorywiseTurnoverStats => builder.find(
         MongoDBObject("_id.currentDate" -> bseClientCategorywiseTurnoverStats._id.currentDate,
-        "_id.key.tradeDate" -> bseClientCategorywiseTurnoverStats._id.key.tradeDate)).upsert().replaceOne(
-          MongoDBObject(bseClientCategorywiseTurnoverStats.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.key.tradeDate" -> bseClientCategorywiseTurnoverStats._id.key.tradeDate)).upsert().update(
+          new BasicDBObject("$set",BSEClientCategorywiseTurnoverStatsMap.toBson(bseClientCategorywiseTurnoverStats)))
     }
     builder.execute()
   }

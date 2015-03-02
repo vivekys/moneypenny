@@ -1,13 +1,11 @@
 package com.moneypenny.fetcher
 
-import java.net.URL
-
-import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlTable, HtmlPage}
-import com.gargoylesoftware.htmlunit.{ElementNotFoundException, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.html.{HtmlPage, HtmlTable}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, ElementNotFoundException, NicelyResynchronizingAjaxController, WebClient}
 import com.moneypenny.util.{DomUtil, ExtractFromTable}
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.Logger
-import scala.collection.JavaConversions._
+
 import scala.collection.mutable.LinkedHashMap
 
 /**

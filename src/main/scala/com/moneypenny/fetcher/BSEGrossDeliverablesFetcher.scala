@@ -3,12 +3,13 @@ package com.moneypenny.fetcher
 import java.io.BufferedInputStream
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{Page, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
 import com.typesafe.config.ConfigFactory
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.commons.io.IOUtils
 import org.apache.log4j.Logger
+
 import scala.collection.JavaConversions._
 
 /**

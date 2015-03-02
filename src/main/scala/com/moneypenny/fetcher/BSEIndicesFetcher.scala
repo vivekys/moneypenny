@@ -1,7 +1,7 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import com.moneypenny.model.{BSEIndices, BSEIndicesKey}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger

@@ -1,7 +1,8 @@
 package com.moneypenny.model
 
+import java.util.Date
+
 import com.moneypenny.db.MongoContext
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -13,9 +14,10 @@ import com.novus.salat.global._
  * Created by vives on 11/30/14.
  */
 //http://www.bseindia.com/download/BhavCopy/Equity/EQ281114_CSV.ZIP
-case class BSEEndOfDayStockPriceKey (scripCode : Long, scripId : String, scripName : String, date : String)
+case class BSEEndOfDayStockPriceKey (scripCode : Long, scripId : String, scripName : String, tradeDate : Date)
 
-case class BSEEndOfDayStockPrice(_id: BSEEndOfDayStockPriceKey, openPrice : Double,
+case class BSEEndOfDayStockPrice(_id: BSEEndOfDayStockPriceKey,
+                                 openPrice : Double,
                                  highPrice : Double,
                                  lowPrice : Double,
                                  closePrice : Double,
@@ -58,20 +60,19 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     val query = MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
       "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
       "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
-      "_id.date" -> bseEndOfDayStockPrice._id.date)
+      "_id.date" -> bseEndOfDayStockPrice._id.tradeDate)
     val doc = BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseEndOfDayStockPriceList map {
       case bseEndOfDayStockPrice => builder.find(MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
         "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
         "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
-        "_id.date" -> bseEndOfDayStockPrice._id.date)).upsert().replaceOne(
-          MongoDBObject(bseEndOfDayStockPrice.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.date" -> bseEndOfDayStockPrice._id.tradeDate)).upsert().update(
+          new BasicDBObject("$set",BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice)))
     }
     builder.execute()
   }
@@ -81,7 +82,7 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     val doc = collection.findOne(MongoDBObject("_id.scripCode" -> key.scripCode,
                                                "_id.scripId" -> key.scripId,
                                                "_id.scripName" -> key.scripName,
-                                               "_id.date" -> key.date)).getOrElse(return None)
+                                               "_id.date" -> key.tradeDate)).getOrElse(return None)
     Some(BSEEndOfDayStockPriceMap.fromBsom(doc))
   }
 }
@@ -94,7 +95,7 @@ object BSEEndOfDayStockPriceDAOManagerTest {
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
-    val key = BSEEndOfDayStockPriceKey(500015, "APPLEFIN", "APPLE FINANCE LTD.", "28-January-2015")
+    val key = BSEEndOfDayStockPriceKey(500015, "APPLEFIN", "APPLE FINANCE LTD.", new Date)
     val bseEndOfDayStockPrice = BSEEndOfDayStockPrice(key, 2.7,2.62,2.27,2.50,2.497786522380718150,4066,31,10156.00,3960,97.39,0.35,0.23)
 
     val context = new MongoContext

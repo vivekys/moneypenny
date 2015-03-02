@@ -2,7 +2,6 @@ package com.moneypenny.model
 
 import java.util.Date
 
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -44,19 +43,18 @@ class BSEIndicesStatsDAO (collection : MongoCollection) {
   def update(bseIndicesStats : BSEIndicesStats) = {
     val query = MongoDBObject("_id.currentDate" -> bseIndicesStats._id.currentDate,
       "_id.key.index" -> bseIndicesStats._id.key.index,
-      "_id.key.date" -> bseIndicesStats._id.key.date)
+      "_id.key.tradeDate" -> bseIndicesStats._id.key.tradeDate)
     val doc = BSEIndicesStatsMap.toBson(bseIndicesStats)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate(bseIndicesStatsList : List[BSEIndicesStats]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseIndicesStatsList map {
       case bseIndicesStats => builder.find(MongoDBObject("_id.currentDate" -> bseIndicesStats._id.currentDate,
         "_id.key.index" -> bseIndicesStats._id.key.index,
-        "_id.key.date" -> bseIndicesStats._id.key.date)).upsert().replaceOne(
-          MongoDBObject(bseIndicesStats.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.key.tradeDate" -> bseIndicesStats._id.key.tradeDate)).upsert().update(
+          new BasicDBObject("$set",BSEIndicesStatsMap.toBson(bseIndicesStats)))
     }
     builder.execute()
   }

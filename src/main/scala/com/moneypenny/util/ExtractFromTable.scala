@@ -1,8 +1,9 @@
 package com.moneypenny.util
 
 import com.gargoylesoftware.htmlunit.html.HtmlTable
-import scala.collection.mutable.ArrayBuffer
+
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
 /**

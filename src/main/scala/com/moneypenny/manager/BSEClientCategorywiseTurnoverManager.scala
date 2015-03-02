@@ -8,10 +8,11 @@ import com.moneypenny.fetcher.BSEClientCategorywiseTurnoverFetcher
 import com.moneypenny.model._
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
-import org.joda.time.{LocalTime, LocalDateTime, LocalDate}
 import org.joda.time.format.DateTimeFormat
+import org.joda.time.{LocalDate, LocalDateTime, LocalTime}
 import org.quartz._
 import org.quartz.impl.StdSchedulerFactory
+
 import scala.collection.JavaConversions._
 
 /**
@@ -114,21 +115,20 @@ class BSEClientCategorywiseTurnoverManager extends Job {
   }
 
   def insertBSEClientCategorywiseTurnoverManager = {
-    var count = 0
     val list = fetchBSEClientCategorywiseTurnover
     logger.info("Inserting " + list.length + " BSEClientCategorywiseTurnover records")
-    list map {
+    val res1 = bseClientCategorywiseTurnoverDAO.bulkUpdate(list)
+
+    val statsList = list map {
       case bseClientCategorywiseTurnover => {
-        count += 1
-        logger.info("Inserting BSEClientCategorywiseTurnover - " + bseClientCategorywiseTurnover._id.tradeDate)
-        val res1 = bseClientCategorywiseTurnoverDAO.update(bseClientCategorywiseTurnover)
-        val res2 = bseClientCategorywiseTurnoverStatsDAO.insert(new BSEClientCategorywiseTurnoverStats(
-                                      new BSEClientCategorywiseTurnoverStatsKey(new Date(), bseClientCategorywiseTurnover._id),
-                                      bseClientCategorywiseTurnover._id.tradeDate, "OK"))
-        logger.info("Result1 - " + res1 + " Result2 - " + res2)
+        new BSEClientCategorywiseTurnoverStats(
+        new BSEClientCategorywiseTurnoverStatsKey(new Date(), bseClientCategorywiseTurnover._id),
+        bseClientCategorywiseTurnover._id.tradeDate, "OK")
       }
     }
-    logger.info("Inserted " + count + " BSEClientCategorywiseTurnover records")
+    val res2 = bseClientCategorywiseTurnoverStatsDAO.bulkInsert(statsList)
+    logger.info("Result1 - " + res1 + " Result2 - " + res2)
+
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {

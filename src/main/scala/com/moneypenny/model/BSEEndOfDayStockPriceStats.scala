@@ -5,7 +5,6 @@ package com.moneypenny.model
  */
 import java.util.Date
 
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -46,22 +45,21 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
       "_id.key.scripCode" -> bseEndOfDayStockPriceStats._id.key.scripCode,
       "_id.key.scripId" -> bseEndOfDayStockPriceStats._id.key.scripId,
       "_id.key.scripName" -> bseEndOfDayStockPriceStats._id.key.scripName,
-      "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.date)
+      "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.tradeDate)
     val doc = BSEEndOfDayStockPriceStatsMap.toBson(bseEndOfDayStockPriceStats)
     collection.update(query, doc, upsert=true)
   }
 
 
   def bulkUpdate(bseEndOfDayStockPriceStatsList : List[BSEEndOfDayStockPriceStats]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseEndOfDayStockPriceStatsList map {
       case bseEndOfDayStockPriceStats => builder.find(MongoDBObject("_id.currentDate" -> bseEndOfDayStockPriceStats._id.currentDate,
         "_id.key.scripCode" -> bseEndOfDayStockPriceStats._id.key.scripCode,
         "_id.key.scripId" -> bseEndOfDayStockPriceStats._id.key.scripId,
         "_id.key.scripName" -> bseEndOfDayStockPriceStats._id.key.scripName,
-        "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.date)).upsert().replaceOne(
-          MongoDBObject(bseEndOfDayStockPriceStats.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.tradeDate)).upsert().update(
+          new BasicDBObject("$set",BSEEndOfDayStockPriceStatsMap.toBson(bseEndOfDayStockPriceStats)))
     }
     builder.execute()
   }

@@ -5,7 +5,6 @@ package com.moneypenny.model
  */
 import java.util.Date
 
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -46,22 +45,35 @@ class BSECorporateActionStatsDAO (collection : MongoCollection) {
       "_id.key.scripCode" -> bseCorporateActionStats._id.key.scripCode,
       "_id.key.scripId" -> bseCorporateActionStats._id.key.scripId,
       "_id.key.scripName" -> bseCorporateActionStats._id.key.scripName,
-      "_id.key.date" -> bseCorporateActionStats._id.key.date)
+      "_id.key.exDate" -> bseCorporateActionStats._id.key.exDate,
+      "_id.key.purpose" -> bseCorporateActionStats._id.key.purpose,
+      "_id.key.recordDate" -> bseCorporateActionStats._id.key.recordDate,
+      "_id.key.bcStartDate" -> bseCorporateActionStats._id.key.bcStartDate,
+      "_id.key.bcEndDate" -> bseCorporateActionStats._id.key.bcEndDate,
+      "_id.key.ndStartDate" -> bseCorporateActionStats._id.key.ndStartDate,
+      "_id.key.ndEndDate" -> bseCorporateActionStats._id.key.ndEndDate,
+      "_id.key.actualPaymentDate" -> bseCorporateActionStats._id.key.actualPaymentDate)
     val doc = BSECorporateActionStatsMap.toBson(bseCorporateActionStats)
     collection.update(query, doc, upsert=true)
   }
 
 
   def bulkUpdate(bseCorporateActionStatsList : List[BSECorporateActionStats]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseCorporateActionStatsList map {
       case bseCorporateActionStats => builder.find(MongoDBObject("_id.currentDate" -> bseCorporateActionStats._id.currentDate,
         "_id.key.scripCode" -> bseCorporateActionStats._id.key.scripCode,
         "_id.key.scripId" -> bseCorporateActionStats._id.key.scripId,
         "_id.key.scripName" -> bseCorporateActionStats._id.key.scripName,
-        "_id.key.date" -> bseCorporateActionStats._id.key.date)).upsert().replaceOne(
-          MongoDBObject(bseCorporateActionStats.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.key.exDate" -> bseCorporateActionStats._id.key.exDate,
+        "_id.key.purpose" -> bseCorporateActionStats._id.key.purpose,
+        "_id.key.recordDate" -> bseCorporateActionStats._id.key.recordDate,
+        "_id.key.bcStartDate" -> bseCorporateActionStats._id.key.bcStartDate,
+        "_id.key.bcEndDate" -> bseCorporateActionStats._id.key.bcEndDate,
+        "_id.key.ndStartDate" -> bseCorporateActionStats._id.key.ndStartDate,
+        "_id.key.ndEndDate" -> bseCorporateActionStats._id.key.ndEndDate,
+        "_id.key.actualPaymentDate" -> bseCorporateActionStats._id.key.actualPaymentDate)).upsert().update(
+          new BasicDBObject("$set",BSECorporateActionStatsMap.toBson(bseCorporateActionStats)))
     }
     builder.execute()
   }

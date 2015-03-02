@@ -3,7 +3,6 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -53,11 +52,11 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseEquityMarketSummaryList map {
       case bseEquityMarketSummary => builder.find(MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)).
-        upsert().replaceOne(MongoDBObject(bseEquityMarketSummary.toStringWithFields.filterKeys(_ != "_id").toList))
+        upsert().update(
+          new BasicDBObject("$set",BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary)))
     }
     builder.execute()
   }

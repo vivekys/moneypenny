@@ -5,12 +5,13 @@ import java.util.Date
 import com.moneypenny.db.MongoContext
 import com.moneypenny.fetcher.BSEIndicesFetcher
 import com.moneypenny.model._
+import com.moneypenny.util.RunableDates
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
-import org.joda.time.{LocalTime, LocalDateTime, LocalDate}
 import org.joda.time.format.DateTimeFormat
 import org.quartz._
 import org.quartz.impl.StdSchedulerFactory
+
 import scala.collection.JavaConversions._
 
 /**
@@ -28,38 +29,6 @@ class BSEIndicesManager extends Job {
 
   def getLastRun = {
     bseIndicesStatsDAO.findLatest
-  }
-
-  def getCurrentRunnableDate (stat : Option[BSEIndicesStats]) = {
-    val dateFormatToRun = DateTimeFormat.forPattern("dd/MM/YYYY")
-    val currentDateTime = new LocalDateTime(new Date())
-    stat match {
-      case Some(s) => {
-        val localDate = new LocalDate(s.lastRun)
-        val nextRunDate = if (localDate.plusDays(1).toLocalDateTime(new LocalTime(18, 0, 0)).compareTo(currentDateTime) < 0)
-          localDate.plusDays(1)
-        else
-          currentDateTime.toLocalDate
-        logger.info("Last Run - " + dateFormatToRun.print(localDate) +
-          " and Next Run - " + dateFormatToRun.print(nextRunDate))
-        dateFormatToRun.print(nextRunDate)
-      }
-      case None => {
-        logger.info("Last Run - None" +
-          " and Next Run - 01/01/1990")
-        "01/01/1990"
-      }
-    }
-  }
-
-  def getEndDate = {
-    val dateFormatToRun = DateTimeFormat.forPattern("dd/MM/YYYY")
-    val currentDateTime = new LocalDateTime(new Date())
-
-    if (currentDateTime.getHourOfDay >= 18)
-      dateFormatToRun.print(currentDateTime)
-    else
-      dateFormatToRun.print(currentDateTime.minusDays(1))
   }
 
   def parseBSEIndicesFetcherData (indices : Map[String, String]) : Iterable[BSEIndices] = {
@@ -88,34 +57,27 @@ class BSEIndicesManager extends Job {
 
   def fetchBseIndices : List[BSEIndices] = {
     val lastRunStat = getLastRun
-    val nextRunDate = getCurrentRunnableDate(lastRunStat)
+    val (startDate, endDate) = RunableDates.getStartAndEndDates(lastRunStat match {
+      case Some(x) => x.lastRun
+      case None => null
+    })
 
-    val dateFormatToRun = DateTimeFormat.forPattern("dd/MM/YYYY")
-    val currentDateTime = new LocalDateTime(new Date())
-
-
-    //TODO Add config here
-    val endDate = getEndDate
-
-    val list = fetchBseIndices(nextRunDate, endDate)
+    val list = fetchBseIndices(startDate, endDate)
     logger.info("Fetched " + list.length + " BSEIndices records")
     list
   }
 
   def insertBSEIndices = {
-    var count = 0
     val list = fetchBseIndices
     logger.info("Inserting " + list.length + " bseIndices records")
-    list map {
+    val res1 = bseIndicesDAO.bulkUpdate(list)
+    val statsList = list map {
       case bseIndices => {
-        count += 1
-        logger.info("Inserting bseIndices - " + bseIndices._id.index + " for the date - " + bseIndices._id.date)
-        val res1 = bseIndicesDAO.insert(bseIndices)
-        val res2 = bseIndicesStatsDAO.insert(new BSEIndicesStats(new BSEIndicesStatsKey(new Date(), bseIndices._id), bseIndices._id.date, "OK"))
-        logger.info("Result1 - " + res1 + " Result2 - " + res2)
+        new BSEIndicesStats(new BSEIndicesStatsKey(new Date(), bseIndices._id), bseIndices._id.tradeDate, "OK")
       }
     }
-    logger.info("Inserted " + count + " bseIndices records")
+    val res2 = bseIndicesStatsDAO.bulkInsert(statsList)
+    logger.info("Result1 - " + res1 + " Result2 - " + res2)
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
@@ -132,27 +94,25 @@ object BSEIndicesManagerTest {
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
-//    val job = JobBuilder.newJob(classOf[BSEIndicesManager])
-//                    .withIdentity("BSEIndicesManager", "MoneyPennyFetcher")
-//                    .build()
-//
-//    val trigger = TriggerBuilder.newTrigger()
-//                            .withIdentity(new TriggerKey("BSEIndicesManagerTrigger", "MoneyPennyFetcher"))
-//                            .startNow()
-//                            .withSchedule(SimpleScheduleBuilder.simpleSchedule()
-//                                            .withIntervalInHours(24)
-//                                            .withRepeatCount(1))
-//                            .build()
-//
-//    val schedularFactory = new StdSchedulerFactory
-//    val sched = schedularFactory.getScheduler
-//
-//    sched.scheduleJob(job, trigger)
-//    sched.start
-//
-//    Thread.sleep(90000000L * 1000L)
-//    sched.shutdown(true)
-    val bseIndicesManager = new BSEIndicesManager
-    bseIndicesManager.insertBSEIndices
+    val job = JobBuilder.newJob(classOf[BSEIndicesManager])
+                    .withIdentity("BSEIndicesManager", "MoneyPennyFetcher")
+                    .build()
+
+    val trigger = TriggerBuilder.newTrigger()
+                            .withIdentity(new TriggerKey("BSEIndicesManagerTrigger", "MoneyPennyFetcher"))
+                            .startNow()
+                            .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                            .withIntervalInHours(24)
+                            .withRepeatCount(1))
+                            .build()
+
+    val schedularFactory = new StdSchedulerFactory
+    val sched = schedularFactory.getScheduler
+
+    sched.scheduleJob(job, trigger)
+    sched.start
+
+    Thread.sleep(90000000L * 1000L)
+    sched.shutdown(true)
   }
 }

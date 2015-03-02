@@ -2,7 +2,6 @@ package com.moneypenny.model
 
 import java.util.Date
 
-import com.moneypenny.db.MongoContext
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection

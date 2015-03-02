@@ -1,15 +1,18 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{Page, NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
+import com.moneypenny.model.{BSECorporateAction, BSECorporateActionKey}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
+import org.joda.time.format.DateTimeFormat
+
 import scala.collection.JavaConversions._
 
 /**
  * Created by vives on 2/7/15.
  */
-class BSECorporateAction {
+class BSECorporateActionFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
   val webClient = new WebClient(BrowserVersion.CHROME)
   webClient.getOptions().setThrowExceptionOnScriptError(false)
@@ -62,20 +65,39 @@ class BSECorporateAction {
         returnMap.put((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
       }
     }
-
     returnMap
   }
 }
 
 
-object BSECorporateAction {
+object BSECorporateActionFetcher {
   def main (args: Array[String]) {
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
-    val bseCorporateAction = new BSECorporateAction
+    val bseCorporateAction = new BSECorporateActionFetcher
     val data = bseCorporateAction.fetch("01/01/1990", "28/01/2015")
-    println(data)
+
+    val dtf = DateTimeFormat.forPattern("dd MMM yyyy")
+    val bseCorporateActionList = data map {
+      case (key, value) => {
+        val (scripCode, scripId, scripName) = key
+        CSVParser.parse(value, CSVFormat.EXCEL.withHeader()).getRecords map {
+          case csvRecord => BSECorporateAction(BSECorporateActionKey(scripCode, scripId, scripName,
+            if (csvRecord.get("Ex Date").length == 0 || csvRecord.get("Ex Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("Ex Date")).toDate),
+            if (csvRecord.get("Purpose").length == 0) None else Some(csvRecord.get("Purpose")),
+            if (csvRecord.get("Record Date").length == 0 || csvRecord.get("Record Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("Record Date")).toDate),
+            if (csvRecord.get("BC Start Date").length == 0 || csvRecord.get("BC Start Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("BC Start Date")).toDate),
+            if (csvRecord.get("BC End Date	").length == 0 || csvRecord.get("BC End Date	").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("BC End Date	")).toDate),
+            if (csvRecord.get("ND Start Date").length == 0 || csvRecord.get("ND Start Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("ND Start Date")).toDate),
+            if (csvRecord.get("ND End Date").length == 0 || csvRecord.get("ND End Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("ND End Date")).toDate),
+            if (csvRecord.get("Actual Payment Date").length == 0 || csvRecord.get("Actual Payment Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("Actual Payment Date")).toDate)))
+        }
+      }
+    } flatMap {
+      case ar => ar.toList
+    }
+    println(bseCorporateActionList)
   }
 }

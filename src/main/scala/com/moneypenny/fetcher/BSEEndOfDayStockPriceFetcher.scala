@@ -1,9 +1,12 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
+import com.moneypenny.model.{BSEEndOfDayStockPriceKey, BSEEndOfDayStockPrice}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
+import org.joda.time.format.DateTimeFormat
+
 import scala.collection.JavaConversions._
 /**
  * Created by vives on 1/1/15.
@@ -77,6 +80,32 @@ object BSEEndOfDayStockPriceFetcher {
 
     val bseEndOfDayStockPriceFetcher = new BSEEndOfDayStockPriceFetcher
     val data = bseEndOfDayStockPriceFetcher.fetch("28/01/2015", "28/01/2015")
-    println(data)
+
+    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
+    val bseEndOfDayStockPriceList = data map {
+      case (key, data) =>
+        val (scripCode, scripId, scripName) = key
+        CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+          csvRecord =>
+            val dateStr = csvRecord.get("Date") + " 15:45:00"
+            BSEEndOfDayStockPrice(BSEEndOfDayStockPriceKey(scripCode, scripId, scripName, dtf.parseLocalDateTime(dateStr).toDate),
+              if (csvRecord.get("Open Price").length == 0)  0 else csvRecord.get("Open Price").toDouble,
+              if (csvRecord.get("High Price").length == 0)  0 else csvRecord.get("High Price").toDouble,
+              if (csvRecord.get("Low Price").length == 0)  0 else csvRecord.get("Low Price").toDouble,
+              if (csvRecord.get("Close Price").length == 0)  0 else csvRecord.get("Close Price").toDouble,
+              if (csvRecord.get("WAP").length == 0)  0 else csvRecord.get("WAP").toDouble,
+              if (csvRecord.get("No.of Shares").length == 0)  0 else csvRecord.get("No.of Shares").toLong,
+              if (csvRecord.get("No. of Trades").length == 0)  0 else csvRecord.get("No. of Trades").toLong,
+              if (csvRecord.get("Total Turnover (Rs.)").length == 0)  0 else csvRecord.get("Total Turnover (Rs.)").toLong,
+              if (csvRecord.get("Deliverable Quantity").length == 0)  0 else csvRecord.get("Deliverable Quantity").toLong,
+              if (csvRecord.get("% Deli. Qty to Traded Qty").length == 0)  0 else csvRecord.get("% Deli. Qty to Traded Qty").toDouble,
+              if (csvRecord.get("Spread High-Low").length == 0)  0 else csvRecord.get("Spread High-Low").toDouble,
+              if (csvRecord.get("Spread Close-Open").length == 0)  0 else csvRecord.get("Spread Close-Open").toDouble
+            )
+        }
+    } flatMap {
+      case ar => ar.toList
+    }
+    println(bseEndOfDayStockPriceList)
   }
 }

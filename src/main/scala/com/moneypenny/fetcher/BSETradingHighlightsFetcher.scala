@@ -1,10 +1,8 @@
 package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
-import com.gargoylesoftware.htmlunit.{NicelyResynchronizingAjaxController, BrowserVersion, WebClient}
-import org.apache.commons.csv.{CSVFormat, CSVParser}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import org.apache.log4j.Logger
-import scala.collection.JavaConversions._
 
 /**
  * Created by vives on 1/1/15.

@@ -2,10 +2,11 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
-import com.moneypenny.model.{BSEClientCategorywiseTurnover, BSEClientCategorywiseTurnoverKey, BSEIndicesKey}
+import com.moneypenny.model.{BSEClientCategorywiseTurnover, BSEClientCategorywiseTurnoverKey}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
+
 import scala.collection.JavaConversions._
 
 /**

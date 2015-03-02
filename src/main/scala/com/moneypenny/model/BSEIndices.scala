@@ -3,7 +3,6 @@ package com.moneypenny.model
 import java.util.Date
 
 import com.moneypenny.db.MongoContext
-import com.moneypenny.util.CaseClassToMapImplicits
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -17,7 +16,7 @@ import org.joda.time.format.DateTimeFormat
  * Created by vives on 11/30/14.
  */
 //http://www.bseindia.com/indices/indexarchivedata.aspx
-case class BSEIndicesKey (index : String, date : Date)
+case class BSEIndicesKey (index : String, tradeDate : Date)
 
 case class BSEIndices(_id : BSEIndicesKey, open : Double, high : Double, low : Double, close : Double)
 
@@ -47,25 +46,24 @@ class BSEIndicesDAO (collection : MongoCollection) {
 
   def update(bseIndices : BSEIndices) = {
     val query = MongoDBObject("_id.index" -> bseIndices._id.index,
-      "_id.date" -> bseIndices._id.date)
+      "_id.tradeDate" -> bseIndices._id.tradeDate)
     val doc = BSEIndicesMap.toBson(bseIndices)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate (bseIndicesList : List[BSEIndices]) = {
-    import CaseClassToMapImplicits._
     val builder = collection.initializeOrderedBulkOperation
     bseIndicesList map {
       case bseIndices => builder.find(MongoDBObject("_id.index" -> bseIndices._id.index,
-        "_id.date" -> bseIndices._id.date)).upsert().replaceOne(
-          MongoDBObject(bseIndices.toStringWithFields.filterKeys(_ != "_id").toList))
+        "_id.tradeDate" -> bseIndices._id.tradeDate)).upsert().update(
+          new BasicDBObject("$set",BSEIndicesMap.toBson(bseIndices)))
     }
     builder.execute()
   }
 
   def findOne (key : BSEIndicesKey) : Option[BSEIndices] = {
     val doc = collection.findOne(MongoDBObject("_id.index" -> key.index,
-      "_id.date" -> key.date)).getOrElse(return None)
+      "_id.tradeDate" -> key.tradeDate)).getOrElse(return None)
     Some(BSEIndicesMap.fromBsom(doc))
   }
 
@@ -95,7 +93,7 @@ object BSEIndicesDAOManagerTest {
 
     val dao = new BSEIndicesDAO(context.test_coll)
 
-    dao.insert(bseIndices)
+//    dao.insert(bseIndices)
 
     println(dao.findOne(key))
     val bseIndicesUpdated = BSEIndices(key, 0,0,0,0)

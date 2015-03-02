@@ -2,9 +2,8 @@ package com.moneypenny.util
 
 import com.gargoylesoftware.htmlunit.html._
 
-import scala.collection.mutable
 import scala.collection.JavaConversions._
-import scala.reflect.ClassTag
+import scala.collection.mutable
 
 /**
  * Created by vives on 1/27/15.
