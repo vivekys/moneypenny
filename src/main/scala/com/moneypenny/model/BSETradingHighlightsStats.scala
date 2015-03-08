@@ -33,7 +33,7 @@ class BSETradingHighlightsStatsDAO (collection : MongoCollection) {
   }
 
   def bulkInsert(bseTradingHighlightsStatsList : List[BSETradingHighlightsStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseTradingHighlightsStatsList map {
       case bseTradingHighlightsStats => builder.insert(BSETradingHighlightsStatsMap.toBson(bseTradingHighlightsStats))
     }
@@ -42,16 +42,16 @@ class BSETradingHighlightsStatsDAO (collection : MongoCollection) {
 
   def update(bseTradingHighlightsStats : BSETradingHighlightsStats) = {
     val query = MongoDBObject("_id.currentDate" -> bseTradingHighlightsStats._id.currentDate,
-      "_id.key.date" -> bseTradingHighlightsStats._id.key.date)
+      "_id.key.date" -> bseTradingHighlightsStats._id.key.tradeDate)
     val doc = BSETradingHighlightsStatsMap.toBson(bseTradingHighlightsStats)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate(bseTradingHighlightsStatsList : List[BSETradingHighlightsStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseTradingHighlightsStatsList map {
       case bseTradingHighlightsStats => builder.find(MongoDBObject("_id.currentDate" -> bseTradingHighlightsStats._id.currentDate,
-        "_id.key.date" -> bseTradingHighlightsStats._id.key.date)).upsert().update(
+        "_id.key.date" -> bseTradingHighlightsStats._id.key.tradeDate)).upsert().update(
           new BasicDBObject("$set",BSETradingHighlightsStatsMap.toBson(bseTradingHighlightsStats)))
     }
     builder.execute()
@@ -59,7 +59,7 @@ class BSETradingHighlightsStatsDAO (collection : MongoCollection) {
 
   def findOne (key : BSETradingHighlightsStatsKey) : Option[BSETradingHighlightsStats] = {
     val doc = collection.findOne(MongoDBObject("_id.currentDate" -> key.currentDate,
-      "_id.key.date" -> key.key.date)).getOrElse(return None)
+      "_id.key.date" -> key.key.tradeDate)).getOrElse(return None)
     Some(BSETradingHighlightsStatsMap.fromBsom(doc))
   }
 
@@ -69,6 +69,11 @@ class BSETradingHighlightsStatsDAO (collection : MongoCollection) {
       case doc :: Nil => Some(BSETradingHighlightsStatsMap.fromBsom(doc))
       case _ => None
     }
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSETradingHighlightsStatsMap.fromBsom(element)
   }
 }
 

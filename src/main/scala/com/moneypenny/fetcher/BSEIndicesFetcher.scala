@@ -3,6 +3,7 @@ package com.moneypenny.fetcher
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import com.moneypenny.model.{BSEIndices, BSEIndicesKey}
+import com.moneypenny.util.RetryFunExecutor
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
@@ -15,11 +16,12 @@ import scala.collection.JavaConversions._
  */
 class BSEIndicesFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
-  val webClient = new WebClient(BrowserVersion.CHROME)
-  webClient.getOptions().setThrowExceptionOnScriptError(false)
-  webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetchOptions = {
+    val webClient = new WebClient(BrowserVersion.CHROME)
+    webClient.getOptions().setThrowExceptionOnScriptError(false)
+    webClient.setAjaxController(new NicelyResynchronizingAjaxController())
+
     val page = webClient.getPage("http://www.bseindia.com/indices/IndexArchiveData.aspx?expandable=1").asInstanceOf[HtmlPage]
     val htmlTable = page.getHtmlElementById("DMY").asInstanceOf[HtmlTable]
     val htmlSelect = page.getElementByName("ctl00$ContentPlaceHolder1$ddlIndex").asInstanceOf[HtmlSelect]
@@ -28,36 +30,57 @@ class BSEIndicesFetcher {
 
 
   }
-  def fetchDataForOption (startDate : String, endDate : String, option : String) = {
+  def fetch (startDate : String, endDate : String, option : String) : Map[(String, String), String] = {
     logger.info(s"Fetching $option from $startDate to $endDate")
-    val page = webClient.getPage("http://www.bseindia.com/indices/IndexArchiveData.aspx?expandable=1").asInstanceOf[HtmlPage]
-    val htmlTable = page.getHtmlElementById("DMY").asInstanceOf[HtmlTable]
-    val htmlSelect = page.getElementByName("ctl00$ContentPlaceHolder1$ddlIndex").asInstanceOf[HtmlSelect]
-    val opt = htmlSelect.getOptionByValue(option)
-    htmlSelect.setSelectedAttribute(opt, true)
+    val returnMap = scala.collection.mutable.Map.empty[(String, String), String]
 
-    val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
-    dailyRadioButton.setChecked(true)
-    val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
-    fromDate.setValueAttribute(startDate)
+    try {
+      RetryFunExecutor.retry(3) {
+        val webClient = new WebClient(BrowserVersion.CHROME)
+        webClient.getOptions().setThrowExceptionOnScriptError(false)
+        webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
-    val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
-    toDate.setValueAttribute(endDate)
+        val page = webClient.getPage("http://www.bseindia.com/indices/IndexArchiveData.aspx?expandable=1").asInstanceOf[HtmlPage]
+        val htmlTable = page.getHtmlElementById("DMY").asInstanceOf[HtmlTable]
+        val htmlSelect = page.getElementByName("ctl00$ContentPlaceHolder1$ddlIndex").asInstanceOf[HtmlSelect]
+        val opt = htmlSelect.getOptionByValue(option)
+        htmlSelect.setSelectedAttribute(opt, true)
 
-    val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
-    val newPage = submitBtn.click().asInstanceOf[HtmlPage]
-    val content = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload1").
-      asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
-    (opt.getText, content)
+        val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
+        dailyRadioButton.setChecked(true)
+        val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
+        fromDate.setValueAttribute(startDate)
+
+        val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
+        toDate.setValueAttribute(endDate)
+
+        val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
+        val newPage = submitBtn.click().asInstanceOf[HtmlPage]
+        val content = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload1").
+          asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
+        returnMap.put((opt.getValueAttribute, opt.getText), content)
+      }
+    }  catch {
+      case ex : Exception => logger.info(s"Error while fetching Indices from $startDate to $endDate for $option", ex)
+    }
+    returnMap.toMap
   }
 
-  def fetch (startDate : String, endDate : String) = {
+  def fetch (startDate : String, endDate : String) : Map[(String, String), String] = {
     logger.info(s"Fetching Indices from $startDate to $endDate")
-    val returnMap = scala.collection.mutable.Map.empty[String, String]
+    val returnMap = scala.collection.mutable.Map.empty[(String, String), String]
     val options = fetchOptions
-    for (opt <- options) {
-      val kv = fetchDataForOption(startDate, endDate, opt.getValueAttribute)
-      returnMap.put(kv._1, kv._2)
+    options.par map {
+      case opt =>
+        try {
+          fetch(startDate, endDate, opt.getValueAttribute) map {
+            case (key, value) => returnMap.put((key._1, key._2), value)
+          }
+
+        } catch {
+          case ex : Exception => logger.info(s"Error while fetching Indices from $startDate to $endDate for "
+            + opt.getValueAttribute, ex)
+        }
     }
     returnMap.toMap
   }
@@ -76,10 +99,10 @@ object BSEIndicesFetcher {
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
 
     val bseIndicesList =  indices map {
-        case (index, data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+        case ((indexId, indexName), data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
           csvRecord =>
             val dateStr = csvRecord.get("Date") + " 15:45:00"
-            val bseIndicesKey = new BSEIndicesKey(index, dtf.parseLocalDateTime(dateStr).toDate)
+            val bseIndicesKey = new BSEIndicesKey(indexId, indexName, dtf.parseLocalDateTime(dateStr).toDate)
             val bseIndices = new BSEIndices(bseIndicesKey,
               if (csvRecord.get("Open").length == 0)  0 else csvRecord.get("Open").toDouble,
               if (csvRecord.get("High").length == 0)  0 else csvRecord.get("High").toDouble,

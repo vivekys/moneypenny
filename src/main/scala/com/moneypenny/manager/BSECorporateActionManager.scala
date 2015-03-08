@@ -26,16 +26,12 @@ class BSECorporateActionManager extends Job {
   val bseCorporateActionDAO = new BSECorporateActionDAO(context.bseCorporateActionCollection)
   val bseCorporateActionStatsDAO = new BSECorporateActionStatsDAO(context.bseCorporateActionStatsCollection)
 
-  def getLastRun = {
-    bseCorporateActionStatsDAO.findLatest
-  }
-
-  def parseBSECorporateActionFetcherData (data : Map[(Long, String, String), String]) = {
+  def parse (data : Map[(Long, String, String), String]) = {
     val dtf = DateTimeFormat.forPattern("dd MMM yyyy")
     data map {
       case (key, value) => {
         val (scripCode, scripId, scripName) = key
-        CSVParser.parse(value, CSVFormat.EXCEL.withHeader()).getRecords map {
+        CSVParser.parse(value, CSVFormat.EXCEL.withHeader()).getRecords.par map {
           case csvRecord => BSECorporateAction(BSECorporateActionKey(scripCode, scripId, scripName,
             if (csvRecord.get("Ex Date").length == 0 || csvRecord.get("Ex Date").length == 1) None else Some(dtf.parseLocalDateTime(csvRecord.get("Ex Date")).toDate),
             if (csvRecord.get("Purpose").length == 0) None else Some(csvRecord.get("Purpose")),
@@ -52,39 +48,39 @@ class BSECorporateActionManager extends Job {
     }
   }
 
-  def fetchBSECorporateAction(nextRunDate : String, endDate : String) : List[BSECorporateAction] = {
+  def fetch(nextRunDate : String, endDate : String) : List[BSECorporateAction] = {
     val data = bseCorporateActionFetcher.fetch(nextRunDate, endDate)
-    parseBSECorporateActionFetcherData(data.toMap).toList
+    parse(data.toMap).toList
   }
 
-  def fetchBSECorporateAction : List[BSECorporateAction] = {
-    val lastRunStat = getLastRun
-    val (startDate, endDate) = RunableDates.getStartAndEndDates(lastRunStat match {
-      case Some(x) => x.lastRun
-      case None => null
-    })
+  def fetch : List[BSECorporateAction] = {
+    val (startDate, endDate) = RunableDates.getStartAndEndDates(null)
 
-    val list = fetchBSECorporateAction(startDate, endDate)
+    val list = fetch(startDate, endDate)
     logger.info("Fetched " + list.length + " BSECorporateAction records")
     list
   }
 
-  def insertBSECorporateAction = {
-    val list = fetchBSECorporateAction
+  def insert = {
+    val list = fetch
     logger.info("Inserting " + list.length + " BSECorporateAction records")
     val res1 = bseCorporateActionDAO.bulkUpdate(list)
-    val statsList = list map {
+    val statsList = list.par map {
       case bseCorporateAction => {
         new BSECorporateActionStats(new BSECorporateActionStatsKey(new Date(), bseCorporateAction._id), new Date(), "OK")
       }
     }
-    val res2 = bseCorporateActionStatsDAO.bulkInsert(statsList)
+    val res2 = bseCorporateActionStatsDAO.bulkInsert(statsList.toList)
     logger.info("Result1 - " + res1 + " Result2 - " + res2)
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
-    logger.info("Running BSECorporateActionManager")
-    insertBSECorporateAction
+    try {
+      logger.info("Running BSECorporateActionManager")
+      insert
+    } catch {
+      case ex : Exception => logger.error("Error running BSECorporateActionManager", ex)
+    }
   }
 
 }

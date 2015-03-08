@@ -18,9 +18,14 @@ object MoneycontrolFinListFetcher {
   webClient.getOptions.setJavaScriptEnabled(false)
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
-  def isActive (pageContent : String) = {
-    ! (pageContent.contains("is not traded on BSE in the last 30 days") ||
-        pageContent.contains("is not traded on NSE in the last 30 days"))
+  def isActiveOnBSE (pageContent : String) = {
+    ! ((pageContent.contains("is not traded on BSE in the last 30 days")) ||
+      pageContent.contains("is not listed on BSE"))
+  }
+
+  def isActiveOnNSE (pageContent : String) = {
+    ! ((pageContent.contains("is not traded on NSE in the last 30 days")) ||
+      pageContent.contains("is not listed on NSE"))
   }
 
   def fetchGetMetaData (name : String, url : String) = {
@@ -42,7 +47,7 @@ object MoneycontrolFinListFetcher {
     logger.info("Fetching Moneycontrol stock Financial anchors")
     val returnMap = scala.collection.mutable.Map.empty[String, String]
     val page = webClient.getPage(url).asInstanceOf[HtmlPage]
-    if (isActive(page.asText())) {
+    if (isActiveOnBSE(page.asText()) || isActiveOnNSE(page.asText())) {
       val xpath = config.getString("com.moneypenny.xpath.MoneycontrolFinListFetcher")
       val unorderedList = page.getByXPath(xpath).get(0).asInstanceOf[HtmlUnorderedList]
       val anchorList = unorderedList.getElementsByTagName("a").asInstanceOf[DomNodeList[HtmlAnchor]]
@@ -53,7 +58,6 @@ object MoneycontrolFinListFetcher {
           returnMap.put(anchor.getFirstChild.getNodeValue, page.getFullyQualifiedUrl(anchor.getHrefAttribute).toString)
         }
       }
-
     }
     returnMap
   }

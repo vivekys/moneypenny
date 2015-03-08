@@ -28,14 +28,15 @@ class BSEEndOfDayStockPriceManager extends Job {
   val bseEndOfDayStockPriceStatsDAO = new BSEEndOfDayStockPriceStatsDAO(context.bseEndOfDayStockPriceStatsCollection)
 
   def getLastRun = {
-    bseEndOfDayStockPriceStatsDAO.findLatest
+    bseEndOfDayStockPriceDAO.findLatest
   }
 
-  def parseBSEEndOfDayStockPriceFetcherData (data : Map[(Long, String, String), String]) = {
+  def parse (data : Map[(Long, String, String), String]) = {
+    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
     data map {
       case (key, data) =>
         val (scripCode, scripId, scripName) = key
-        CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+        CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords.par map {
           csvRecord =>
             val dateStr = csvRecord.get("Date") + " 15:45:00"
             BSEEndOfDayStockPrice(BSEEndOfDayStockPriceKey(scripCode, scripId, scripName, dtf.parseLocalDateTime(dateStr).toDate),
@@ -58,39 +59,52 @@ class BSEEndOfDayStockPriceManager extends Job {
     }
   }
 
-  def fetchBSEEndOfDayStockPrice(nextRunDate : String, endDate : String) : List[BSEEndOfDayStockPrice] = {
+  def fetch (nextRunDate : String, endDate : String) : List[BSEEndOfDayStockPrice] = {
     val data = bseEndOfDayStockPriceFetcher.fetch(nextRunDate, endDate)
-    parseBSEEndOfDayStockPriceFetcherData(data.toMap).toList
+    parse(data.toMap).toList
   }
 
-  def fetchBSEEndOfDayStockPrice : List[BSEEndOfDayStockPrice] = {
-    val lastRunStat = getLastRun
-    val (startDate, endDate) = RunableDates.getStartAndEndDates(lastRunStat match {
-      case Some(x) => x.lastRun
-      case None => null
-    })
+  def fetch (startDate : String, endDate : String, scripCode : Long, scripId : String, scripName : String) : List[BSEEndOfDayStockPrice] = {
+    val data = bseEndOfDayStockPriceFetcher.fetch(startDate, endDate, scripCode, scripId, scripName)
+    parse(data).toList
+  }
 
-    val list = fetchBSEEndOfDayStockPrice(startDate, endDate)
+  def fetch : List[BSEEndOfDayStockPrice] = {
+    val lastRunKeys = getLastRun
+    val list = if (lastRunKeys.isEmpty) {
+      val (startDate, endDate) = RunableDates.getStartAndEndDates(null)
+      fetch(startDate, endDate)
+    } else {
+      lastRunKeys.toList.par map {
+        key => val (startDate, endDate) = RunableDates.getStartAndEndDates(key.tradeDate)
+          fetch(startDate, endDate, key.scripCode, key.scripId, key.scripName)
+      } reduce(_ ++ _)
+    }
+
     logger.info("Fetched " + list.length + " BSEEndOfDayStockPrice records")
     list
   }
 
-  def insertBSEEndOfDayStockPrice = {
-    val list = fetchBSEEndOfDayStockPrice
+  def insert = {
+    val list = fetch
     logger.info("Inserting " + list.length + " BSEEndOfDayStockPrice records")
     val res1 = bseEndOfDayStockPriceDAO.bulkUpdate(list)
-    val statsList = list map {
+    val statsList = list.par map {
       case bseEndOfDayStockPrice => {
         BSEEndOfDayStockPriceStats(BSEEndOfDayStockPriceStatsKey(new Date(), bseEndOfDayStockPrice._id), bseEndOfDayStockPrice._id.tradeDate, "OK")
       }
     }
-    val res2 = bseEndOfDayStockPriceStatsDAO.bulkInsert(statsList)
+    val res2 = bseEndOfDayStockPriceStatsDAO.bulkInsert(statsList.toList)
     logger.info("Result1 - " + res1 + " Result2 - " + res2)
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
-    logger.info("Running BSEIndicesManager")
-    insertBSEEndOfDayStockPrice
+    try {
+      logger.info("Running BSEEndOfDayStockPriceManager")
+      insert
+    } catch {
+      case ex : Exception => logger.error("Error running BSEEndOfDayStockPriceManager", ex)
+    }
   }
 }
 

@@ -2,7 +2,9 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
-import com.moneypenny.model.{BSEEndOfDayStockPriceKey, BSEEndOfDayStockPrice}
+import com.moneypenny.db.MongoContext
+import com.moneypenny.model.{BSEListOfScrips, BSEListOfScripsDAO, BSEEndOfDayStockPriceKey, BSEEndOfDayStockPrice}
+import com.moneypenny.util.RetryFunExecutor
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
@@ -13,63 +15,80 @@ import scala.collection.JavaConversions._
  */
 class BSEEndOfDayStockPriceFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
-  val webClient = new WebClient(BrowserVersion.CHROME)
-  webClient.getOptions().setThrowExceptionOnScriptError(false)
-  webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetchListOfScrips = {
-    val bseListOfScripsFetcher = new BSEListOfScripsFetcher
-    bseListOfScripsFetcher.fetch
+    val context = new MongoContext
+    context.connect()
+
+    val dao = new BSEListOfScripsDAO(context.bseListOfScripsCollection)
+    dao.findAll
   }
 
-  def fetchDataForId (startDate : String, endDate : String, id : String) = {
-    logger.info(s"Fetching data for $id from $startDate till $endDate")
-    val page = webClient.getPage("http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=0").asInstanceOf[HtmlPage]
-    val equityRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rad_no1").asInstanceOf[HtmlRadioButtonInput]
-    equityRadioButton.setChecked(true)
-
-    val searchInput = page.getElementByName("ctl00$ContentPlaceHolder1$GetQuote1_smartSearch").asInstanceOf[HtmlTextInput]
-    searchInput.`type`(id)
-    val list = page.getElementById("listEQ").asInstanceOf[HtmlUnorderedList]
-    val element = list.getElementsByTagName("a").get(0).asInstanceOf[HtmlAnchor]
-    element.click()
-
-    val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
-    dailyRadioButton.setChecked(true)
-    val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
-    fromDate.setValueAttribute(startDate)
-
-    val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
-    toDate.setValueAttribute(endDate)
-
-    val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
-    val newPage = submitBtn.click().asInstanceOf[HtmlPage]
-    val content = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload").
-      asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
-    content
-  }
-
-  def fetch (startDate : String, endDate : String) = {
+  def fetch (startDate : String, endDate : String, scripCode : Long, scripId : String, scripName : String) : Map[(Long, String, String), String] = {
+    logger.info(s"Fetching data for $scripId from $startDate till $endDate")
     val returnMap = scala.collection.mutable.Map.empty[(Long, String, String), String]
+    
+    try {
+      RetryFunExecutor.retry(3) {
+        val webClient = new WebClient(BrowserVersion.CHROME)
+        webClient.getOptions().setThrowExceptionOnScriptError(false)
+        webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
-    val list = fetchListOfScrips
+        val page = webClient.getPage("http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=0").asInstanceOf[HtmlPage]
+        val equityRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rad_no1").asInstanceOf[HtmlRadioButtonInput]
+        equityRadioButton.setChecked(true)
 
-    val csvParser = CSVParser.parse(list, CSVFormat.EXCEL.withHeader())
-    for (csvRecord <- csvParser.getRecords) {
-      if (csvRecord.get("Status") != "Delisted" && csvRecord.get("Status") != "N") {
-        val scripCode = csvRecord.get(0).toLong
-        val scripId = csvRecord.get(1)
-        val scripName = csvRecord.get(2)
-        val data = fetchDataForId(startDate, endDate, scripId)
-        logger.info(s"$scripCode, $scripId, $scripName - $data")
-        val dataParser = CSVParser.parse(data, CSVFormat.EXCEL.withHeader())
-        println(dataParser.getHeaderMap)
+        val searchInput = page.getElementByName("ctl00$ContentPlaceHolder1$GetQuote1_smartSearch").asInstanceOf[HtmlTextInput]
+        searchInput.`type`(scripId)
+        val list = page.getElementById("listEQ").asInstanceOf[HtmlUnorderedList]
+        val element = list.getElementsByTagName("a").get(0).asInstanceOf[HtmlAnchor]
+        element.click()
+
+        val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
+        dailyRadioButton.setChecked(true)
+        val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
+        fromDate.setValueAttribute(startDate)
+
+        val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
+        toDate.setValueAttribute(endDate)
+
+        val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
+        val newPage = submitBtn.click().asInstanceOf[HtmlPage]
+        val data = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload").
+          asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
         returnMap.put((scripCode, scripId, scripName), data)
       }
+    } catch {
+      case ex : Exception => logger.info(s"Error while Fetching data for $scripId from $startDate to $endDate", ex)
     }
-    returnMap
+    returnMap.toMap
   }
 
+  def fetch (startDate : String, endDate : String) : Map[(Long, String, String), String] = {
+    val returnMap = scala.collection.mutable.Map.empty[(Long, String, String), String]
+
+    val bseListOfScrips = fetchListOfScrips
+
+    bseListOfScrips.par .filter((bseScrip : BSEListOfScrips) => bseScrip.status.get != "Delisted" &&
+      bseScrip.status.get != "N") map {
+      case bseScrip => {
+        val scripCode = bseScrip._id.scripCode
+        val scripId = bseScrip.scripId.get
+        val scripName = bseScrip.scripName.get
+        logger.info(s"$scripCode, $scripId, $scripName")
+        try {
+          fetch(startDate, endDate, scripCode, scripId, scripName) map {
+            case (key, value) =>
+              returnMap.put((key._1, key._2, key._3), value)
+          }
+        } catch {
+          case ex : Exception =>
+            logger.error(s"Error while fetching daily quote for $scripCode, $scripId, $scripName", ex)
+        }
+      }
+    }
+    returnMap.toMap
+  }
 }
 
 object BSEEndOfDayStockPriceFetcher {
@@ -79,7 +98,7 @@ object BSEEndOfDayStockPriceFetcher {
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
     val bseEndOfDayStockPriceFetcher = new BSEEndOfDayStockPriceFetcher
-    val data = bseEndOfDayStockPriceFetcher.fetch("28/01/2015", "28/01/2015")
+    val data = bseEndOfDayStockPriceFetcher.fetch("01/01/1990", "06/03/2015")
 
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
     val bseEndOfDayStockPriceList = data map {

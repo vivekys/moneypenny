@@ -28,16 +28,16 @@ class BSEIndicesManager extends Job {
   val bseIndicesStatsDAO = new BSEIndicesStatsDAO(context.bseIndicesStatsCollection)
 
   def getLastRun = {
-    bseIndicesStatsDAO.findLatest
+    bseIndicesDAO.findLatest
   }
 
-  def parseBSEIndicesFetcherData (indices : Map[String, String]) : Iterable[BSEIndices] = {
+  def parse (indices : Map[(String, String), String]) : Iterable[BSEIndices] = {
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
     indices map {
-      case (index, data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+      case ((indexId, indexName), data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
         csvRecord =>
           val dateStr = csvRecord.get("Date") + " 15:45:00"
-          val bseIndicesKey = new BSEIndicesKey(index, dtf.parseLocalDateTime(dateStr).toDate)
+          val bseIndicesKey = new BSEIndicesKey(indexId, indexName, dtf.parseLocalDateTime(dateStr).toDate)
           val bseIndices = new BSEIndices(bseIndicesKey,
             if (csvRecord.get("Open").length == 0)  0 else csvRecord.get("Open").toDouble,
             if (csvRecord.get("High").length == 0)  0 else csvRecord.get("High").toDouble,
@@ -50,25 +50,34 @@ class BSEIndicesManager extends Job {
     }
   }
 
-  def fetchBseIndices(nextRunDate : String, endDate : String) : List[BSEIndices] = {
+  def fetch (nextRunDate : String, endDate : String) : List[BSEIndices] = {
     val data = bseIndicesFetcher.fetch(nextRunDate, endDate)
-    parseBSEIndicesFetcherData(data).toList
+    parse(data).toList
   }
 
-  def fetchBseIndices : List[BSEIndices] = {
-    val lastRunStat = getLastRun
-    val (startDate, endDate) = RunableDates.getStartAndEndDates(lastRunStat match {
-      case Some(x) => x.lastRun
-      case None => null
-    })
+  def fetch (nextRunDate : String, endDate : String, indexId : String) : List[BSEIndices] = {
+    val data = bseIndicesFetcher.fetch(nextRunDate, endDate, indexId)
+    parse(data).toList
+  }
 
-    val list = fetchBseIndices(startDate, endDate)
+  def fetch : List[BSEIndices] = {
+    val lastRunKeys = getLastRun
+    val list = if (lastRunKeys.isEmpty) {
+                  val (startDate, endDate) = RunableDates.getStartAndEndDates(null)
+                  fetch(startDate, endDate)
+    } else {
+      lastRunKeys.toList.par map {
+        key => val (startDate, endDate) = RunableDates.getStartAndEndDates(key.tradeDate)
+               fetch(startDate, endDate, key.indexId)
+        } reduce(_ ++ _)
+    }
+
     logger.info("Fetched " + list.length + " BSEIndices records")
     list
   }
 
-  def insertBSEIndices = {
-    val list = fetchBseIndices
+  def insert = {
+    val list = fetch
     logger.info("Inserting " + list.length + " bseIndices records")
     val res1 = bseIndicesDAO.bulkUpdate(list)
     val statsList = list map {
@@ -81,10 +90,13 @@ class BSEIndicesManager extends Job {
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
-    logger.info("Running BSEIndicesManager")
-    insertBSEIndices
+    try {
+      logger.info("Running BSEIndicesManager")
+      insert
+    } catch {
+      case ex : Exception => logger.error("Error running BSEIndicesManager", ex)
+    }
   }
-
 }
 
 

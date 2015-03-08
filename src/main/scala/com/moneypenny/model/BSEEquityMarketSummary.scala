@@ -38,7 +38,7 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   }
 
   def bulkInsert (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEquityMarketSummaryList map {
       case bseEquityMarketSummary => builder.insert(BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary))
     }
@@ -52,7 +52,7 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEquityMarketSummaryList map {
       case bseEquityMarketSummary => builder.find(MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)).
         upsert().update(
@@ -65,6 +65,11 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   def findOne (key : BSEEquityMarketSummaryKey) : Option[BSEEquityMarketSummary] = {
     val doc = collection.findOne(MongoDBObject("_id.date" -> key.date)).getOrElse(return None)
     Some(BSEEquityMarketSummaryMap.fromBsom(doc))
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEEquityMarketSummaryMap.fromBsom(element)
   }
 }
 

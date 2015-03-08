@@ -2,7 +2,9 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
-import com.moneypenny.model.{BSECorporateAction, BSECorporateActionKey}
+import com.moneypenny.db.MongoContext
+import com.moneypenny.model.{BSEListOfScrips, BSEListOfScripsDAO, BSECorporateAction, BSECorporateActionKey}
+import com.moneypenny.util.RetryFunExecutor
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
@@ -14,17 +16,22 @@ import scala.collection.JavaConversions._
  */
 class BSECorporateActionFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
-  val webClient = new WebClient(BrowserVersion.CHROME)
-  webClient.getOptions().setThrowExceptionOnScriptError(false)
-  webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def fetchListOfScrips = {
-    val bseListOfScripsFetcher = new BSEListOfScripsFetcher
-    bseListOfScripsFetcher.fetch
+    val context = new MongoContext
+    context.connect()
+
+    val dao = new BSEListOfScripsDAO(context.bseListOfScripsCollection)
+    dao.findAll
   }
 
   def fetchCAForId (startDate : String, endDate : String, id : String) = {
     logger.info(s"Fetching CA for $id from $startDate till $endDate")
+
+    val webClient = new WebClient(BrowserVersion.CHROME)
+    webClient.getOptions().setThrowExceptionOnScriptError(false)
+    webClient.setAjaxController(new NicelyResynchronizingAjaxController())
+
     val page = webClient.getPage("http://www.bseindia.com/corporates/corporate_act.aspx?expandable=0").asInstanceOf[HtmlPage]
 
     val searchInput = page.getElementByName("ctl00$ContentPlaceHolder1$GetQuote1_smartSearch").asInstanceOf[HtmlTextInput]
@@ -52,17 +59,23 @@ class BSECorporateActionFetcher {
   def fetch (startDate : String, endDate : String) = {
     val returnMap = scala.collection.mutable.Map.empty[(Long, String, String), String]
 
-    val list = fetchListOfScrips
-    val csvParser = CSVParser.parse(list, CSVFormat.EXCEL.withHeader())
-    for (csvRecord <- csvParser.getRecords) {
-      if (csvRecord.get("Status") != "Delisted" && csvRecord.get("Status") != "N") {
-        val scrip = csvRecord.get(1)
-        val data = fetchCAForId(startDate, endDate, scrip)
-        logger.info(s"CA for $scrip from $startDate to $endDate are")
-        val (key, value) = ((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
-        logger.info(s"key - $key")
-        logger.info(s"value - $value")
-        returnMap.put((csvRecord.get(0).toLong, csvRecord.get(1), csvRecord.get(2)), data)
+    val bseListOfScrips = fetchListOfScrips
+
+    bseListOfScrips.filter((bseScrip : BSEListOfScrips) => bseScrip.status.get != "Delisted" &&
+      bseScrip.status.get != "N").par map {
+      case bseScrip => {
+        val scripCode = bseScrip._id.scripCode
+        val scripId = bseScrip.scripId.get
+        val scripName = bseScrip.scripName.get
+        logger.info(s"$scripCode, $scripId, $scripName")
+        try {
+          val data = RetryFunExecutor.retry(3)(fetchCAForId(startDate, endDate, scripId))
+          val (key, value) = ((scripCode, scripId, scripName), data)
+          returnMap.put(key, value)
+        } catch {
+          case ex : Exception =>
+            logger.error(s"Error while fetching CA for $scripCode, $scripId, $scripName", ex)
+        }
       }
     }
     returnMap

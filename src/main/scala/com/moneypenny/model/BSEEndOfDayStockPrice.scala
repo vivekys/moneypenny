@@ -49,7 +49,7 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
   }
 
   def bulkInsert (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEndOfDayStockPriceList map {
       case bseEndOfDayStockPrice => builder.insert(BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice))
     }
@@ -60,18 +60,18 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     val query = MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
       "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
       "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
-      "_id.date" -> bseEndOfDayStockPrice._id.tradeDate)
+      "_id.tradeDate" -> bseEndOfDayStockPrice._id.tradeDate)
     val doc = BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEndOfDayStockPriceList map {
       case bseEndOfDayStockPrice => builder.find(MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
         "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
         "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
-        "_id.date" -> bseEndOfDayStockPrice._id.tradeDate)).upsert().update(
+        "_id.tradeDate" -> bseEndOfDayStockPrice._id.tradeDate)).upsert().update(
           new BasicDBObject("$set",BSEEndOfDayStockPriceMap.toBson(bseEndOfDayStockPrice)))
     }
     builder.execute()
@@ -82,8 +82,37 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
     val doc = collection.findOne(MongoDBObject("_id.scripCode" -> key.scripCode,
                                                "_id.scripId" -> key.scripId,
                                                "_id.scripName" -> key.scripName,
-                                               "_id.date" -> key.tradeDate)).getOrElse(return None)
+                                               "_id.tradeDate" -> key.tradeDate)).getOrElse(return None)
     Some(BSEEndOfDayStockPriceMap.fromBsom(doc))
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEEndOfDayStockPriceMap.fromBsom(element)
+  }
+
+  def findLatest = {
+    val aggregationOptions = AggregationOptions(AggregationOptions.CURSOR)
+    val results = collection.aggregate(
+      List(
+        MongoDBObject(
+          "$group" ->
+            MongoDBObject("_id" -> MongoDBObject("scripCode" -> "$_id.scripCode",
+              "scripId" -> "$_id.scripId",
+              "scripName" -> "$_id.scripName"),
+              "tradeDate" -> MongoDBObject("$max" -> "$_id.tradeDate"))
+        )
+      ), aggregationOptions
+    )
+    results map {
+      case res =>
+        val id = res.as[Map[String, String]]("_id")
+        BSEEndOfDayStockPriceKey(scripCode = id.get("scripCode").get.toLong,
+          scripId = id.get("scripId").get,
+          scripName = id.get("scripName").get,
+          tradeDate = res.as[Date]("tradeDate")
+        )
+    }
   }
 }
 

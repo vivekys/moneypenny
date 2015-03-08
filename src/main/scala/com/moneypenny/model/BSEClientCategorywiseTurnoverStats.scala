@@ -33,7 +33,7 @@ class BSEClientCategorywiseTurnoverStatsDAO (collection : MongoCollection) {
   }
 
   def bulkInsert(bseClientCategorywiseTurnoverStatsList : List[BSEClientCategorywiseTurnoverStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseClientCategorywiseTurnoverStatsList map {
       case bseClientCategorywiseTurnoverStats => builder.insert(BSEClientCategorywiseTurnoverStatsMap.toBson(bseClientCategorywiseTurnoverStats))
     }
@@ -48,7 +48,7 @@ class BSEClientCategorywiseTurnoverStatsDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate(bseClientCategorywiseTurnoverStatsList : List[BSEClientCategorywiseTurnoverStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseClientCategorywiseTurnoverStatsList map {
       case bseClientCategorywiseTurnoverStats => builder.find(
         MongoDBObject("_id.currentDate" -> bseClientCategorywiseTurnoverStats._id.currentDate,
@@ -71,4 +71,10 @@ class BSEClientCategorywiseTurnoverStatsDAO (collection : MongoCollection) {
       case _ => None
     }
   }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEClientCategorywiseTurnoverStatsMap.fromBsom(element)
+  }
+
 }

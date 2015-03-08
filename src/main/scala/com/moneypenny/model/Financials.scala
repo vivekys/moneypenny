@@ -48,6 +48,11 @@ class FinancialsDAO (collection : MongoCollection) {
       "_id.fyDate" -> key.fyDate)).getOrElse(return None)
     Some(FinancialsMap.fromBsom(doc))
   }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield FinancialsMap.fromBsom(element)
+  }
 }
 
 
@@ -55,12 +60,10 @@ object FinancialsDAOTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
     RegisterConversionHelpers()
-    RegisterJodaLocalDateTimeConversionHelpers
 
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
-
   }
 }
 

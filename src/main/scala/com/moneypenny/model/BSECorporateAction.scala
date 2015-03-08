@@ -42,7 +42,7 @@ class BSECorporateActionDAO (collection : MongoCollection) {
   }
 
   def bulkInsert (bseCorporateActionList : List[BSECorporateAction]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseCorporateActionList map {
       case bseCorporateAction => builder.insert(BSECorporateActionMap.toBson(bseCorporateAction))
     }
@@ -66,7 +66,7 @@ class BSECorporateActionDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate (bseCorporateActionList : List[BSECorporateAction]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseCorporateActionList map {
       case bseCorporateAction => builder.find(MongoDBObject("_id.scripCode" -> bseCorporateAction._id.scripCode,
         "_id.scripId" -> bseCorporateAction._id.scripId,
@@ -97,6 +97,11 @@ class BSECorporateActionDAO (collection : MongoCollection) {
       "_id.ndEndDate" -> key.ndEndDate,
       "_id.actualPaymentDate" -> key.actualPaymentDate)).getOrElse(return None)
     Some(BSECorporateActionMap.fromBsom(doc))
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSECorporateActionMap.fromBsom(element)
   }
 }
 

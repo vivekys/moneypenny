@@ -33,7 +33,7 @@ class BSEIndicesStatsDAO (collection : MongoCollection) {
   }
 
   def bulkInsert(bseIndicesStatsList : List[BSEIndicesStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseIndicesStatsList map {
       case bseIndicesStats => builder.insert(BSEIndicesStatsMap.toBson(bseIndicesStats))
     }
@@ -42,17 +42,19 @@ class BSEIndicesStatsDAO (collection : MongoCollection) {
 
   def update(bseIndicesStats : BSEIndicesStats) = {
     val query = MongoDBObject("_id.currentDate" -> bseIndicesStats._id.currentDate,
-      "_id.key.index" -> bseIndicesStats._id.key.index,
+      "_id.key.indexId" -> bseIndicesStats._id.key.indexId,
+      "_id.key.indexName" -> bseIndicesStats._id.key.indexName,
       "_id.key.tradeDate" -> bseIndicesStats._id.key.tradeDate)
     val doc = BSEIndicesStatsMap.toBson(bseIndicesStats)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate(bseIndicesStatsList : List[BSEIndicesStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseIndicesStatsList map {
       case bseIndicesStats => builder.find(MongoDBObject("_id.currentDate" -> bseIndicesStats._id.currentDate,
-        "_id.key.index" -> bseIndicesStats._id.key.index,
+        "_id.key.indexId" -> bseIndicesStats._id.key.indexId,
+        "_id.key.indexName" -> bseIndicesStats._id.key.indexName,
         "_id.key.tradeDate" -> bseIndicesStats._id.key.tradeDate)).upsert().update(
           new BasicDBObject("$set",BSEIndicesStatsMap.toBson(bseIndicesStats)))
     }
@@ -70,6 +72,11 @@ class BSEIndicesStatsDAO (collection : MongoCollection) {
       case doc :: Nil => Some(BSEIndicesStatsMap.fromBsom(doc))
       case _ => None
     }
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEIndicesStatsMap.fromBsom(element)
   }
 }
 

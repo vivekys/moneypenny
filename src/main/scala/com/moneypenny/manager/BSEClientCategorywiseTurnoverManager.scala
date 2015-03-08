@@ -6,6 +6,7 @@ import java.util.Date
 import com.moneypenny.db.MongoContext
 import com.moneypenny.fetcher.BSEClientCategorywiseTurnoverFetcher
 import com.moneypenny.model._
+import com.moneypenny.util.RunableDates
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
@@ -28,46 +29,9 @@ class BSEClientCategorywiseTurnoverManager extends Job {
   val bseClientCategorywiseTurnoverDAO = new BSEClientCategorywiseTurnoverDAO(context.bseClientCategorywiseTurnoverCollection)
   val bseClientCategorywiseTurnoverStatsDAO = new BSEClientCategorywiseTurnoverStatsDAO(context.bseClientCategorywiseTurnoverStatsCollection)
 
-  def getLastRun = {
-    bseClientCategorywiseTurnoverStatsDAO.findLatest
-  }
-
-  def getCurrentRunnableDate (stat : Option[BSEClientCategorywiseTurnoverStats]) = {
-    val dateFormatToRun = DateTimeFormat.forPattern("dd/MM/YYYY")
-    val currentDateTime = new LocalDateTime(new Date())
-    stat match {
-      case Some(s) => {
-        val localDate = new LocalDate(s.lastRun)
-        val nextRunDate = if (localDate.plusDays(1).toLocalDateTime(new LocalTime(18, 0, 0)).compareTo(currentDateTime) < 0)
-          localDate.plusDays(1)
-        else
-          currentDateTime.toLocalDate
-        logger.info("Last Run - " + dateFormatToRun.print(localDate) +
-          " and Next Run - " + dateFormatToRun.print(nextRunDate))
-        dateFormatToRun.print(nextRunDate)
-      }
-      case None => {
-        logger.info("Last Run - None" +
-          " and Next Run - 01/01/1990")
-        "01/01/1990"
-      }
-    }
-  }
-
-  def getEndDate = {
-    val dateFormatToRun = DateTimeFormat.forPattern("dd/MM/YYYY")
-    val currentDateTime = new LocalDateTime(new Date())
-
-    if (currentDateTime.getHourOfDay >= 18)
-      dateFormatToRun.print(currentDateTime)
-    else
-      dateFormatToRun.print(currentDateTime.minusDays(1))
-  }
-
-
-  def parseBSEClientCategorywiseTurnoverData (data : String) : Iterable[BSEClientCategorywiseTurnover] = {
+  def parse (data : String) : Iterable[BSEClientCategorywiseTurnover] = {
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
-    CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
+    CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords.par map {
       case csvRecord => {
         val dateStr = csvRecord.get("Trade Date") + " 15:45:00"
         val bseClientCategorywiseTurnoverKey = new BSEClientCategorywiseTurnoverKey(dtf.parseLocalDateTime(dateStr).toDate)
@@ -95,45 +59,46 @@ class BSEClientCategorywiseTurnoverManager extends Job {
           if (csvRecord.get("DII(BSE + NSE + MCX-SX) Net").length == 0)  0 else csvRecord.get("DII(BSE + NSE + MCX-SX) Net").toDouble)
         bseClientCategorywiseTurnover
       }
-    }
+    } toList
   }
 
-  def fetchBSEClientCategorywiseTurnover(nextRunDate : String, endDate : String) : List[BSEClientCategorywiseTurnover] = {
+  def fetch(nextRunDate : String, endDate : String) : List[BSEClientCategorywiseTurnover] = {
     val data = bseClientCategorywiseTurnoverFetcher.fetch(nextRunDate, endDate)
-    parseBSEClientCategorywiseTurnoverData(data).toList
+    parse(data).toList
   }
 
-  def fetchBSEClientCategorywiseTurnover : List[BSEClientCategorywiseTurnover] = {
-    val nextRunDate = "01/01/1990"
-
-    //TODO Add config here
-    val endDate = getEndDate
-
-    val list = fetchBSEClientCategorywiseTurnover(nextRunDate, endDate)
+  def fetch : List[BSEClientCategorywiseTurnover] = {
+    val (startDate, endDate) = RunableDates.getStartAndEndDates(null)
+    
+    val list = fetch(startDate, endDate)
     logger.info("Fetched " + list.length + " BSEClientCategorywiseTurnover records")
     list
   }
 
-  def insertBSEClientCategorywiseTurnoverManager = {
-    val list = fetchBSEClientCategorywiseTurnover
+  def insert = {
+    val list = fetch
     logger.info("Inserting " + list.length + " BSEClientCategorywiseTurnover records")
     val res1 = bseClientCategorywiseTurnoverDAO.bulkUpdate(list)
 
-    val statsList = list map {
+    val statsList = list.par map {
       case bseClientCategorywiseTurnover => {
         new BSEClientCategorywiseTurnoverStats(
         new BSEClientCategorywiseTurnoverStatsKey(new Date(), bseClientCategorywiseTurnover._id),
         bseClientCategorywiseTurnover._id.tradeDate, "OK")
       }
     }
-    val res2 = bseClientCategorywiseTurnoverStatsDAO.bulkInsert(statsList)
+    val res2 = bseClientCategorywiseTurnoverStatsDAO.bulkInsert(statsList.toList)
     logger.info("Result1 - " + res1 + " Result2 - " + res2)
 
   }
 
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
-    logger.info("Running BSEClientCategorywiseTurnoverManager")
-    insertBSEClientCategorywiseTurnoverManager
+    try {
+      logger.info("Running BSEClientCategorywiseTurnoverManager")
+      insert
+    } catch {
+      case ex : Exception => logger.error("Error running BSEClientCategorywiseTurnoverManager", ex)
+    }
   }
 
 }

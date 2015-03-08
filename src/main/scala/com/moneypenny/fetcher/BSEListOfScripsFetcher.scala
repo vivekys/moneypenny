@@ -2,7 +2,10 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlImageInput, HtmlPage, HtmlSelect}
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
+import com.moneypenny.model.{BSEListOfScripsKey, BSEListOfScrips}
+import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
+import scala.collection.JavaConversions._
 
 /**
  * Created by vives on 12/31/14.
@@ -37,6 +40,19 @@ object BSEListOfScripsFetcher {
 
     val bseListOfScripsFetcher = new BSEListOfScripsFetcher
     val bseListOfScrips = bseListOfScripsFetcher.fetch
+    CSVParser.parse(bseListOfScrips, CSVFormat.EXCEL.withHeader()).getRecords map {
+      case csvRecords => {
+        BSEListOfScrips(BSEListOfScripsKey(csvRecords.get("Scrip Code").toLong),
+          if (csvRecords.get("Scrip Id").length == 0) None else Some(csvRecords.get("Scrip Id")),
+          if (csvRecords.get("Scrip Name").length == 0) None else Some(csvRecords.get("Scrip Name")),
+          if (csvRecords.get("Status").length == 0) None else Some(csvRecords.get("Status")),
+          if (csvRecords.get("Group").length == 0) None else Some(csvRecords.get("Group")),
+          if (csvRecords.get("Face Value").length == 0) None else Some(csvRecords.get("Face Value").toDouble),
+          if (csvRecords.get("ISIN No").length == 0) None else Some(csvRecords.get("ISIN No")),
+          if (csvRecords.get("Industry").length == 0) None else Some(csvRecords.get("Industry")),
+          if (csvRecords.get("Instrument").length == 0) None else Some(csvRecords.get("Instrument")))
+      }
+    }
     println(bseListOfScrips)
   }
 }

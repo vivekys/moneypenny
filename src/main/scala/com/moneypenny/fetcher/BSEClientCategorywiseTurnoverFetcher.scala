@@ -3,6 +3,7 @@ package com.moneypenny.fetcher
 import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import com.moneypenny.model.{BSEClientCategorywiseTurnover, BSEClientCategorywiseTurnoverKey}
+import com.moneypenny.util.RetryFunExecutor
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import org.joda.time.format.DateTimeFormat
@@ -21,21 +22,28 @@ class BSEClientCategorywiseTurnoverFetcher {
   def fetch (startDate : String, endDate : String) = {
     logger.info(s"Fetching BSEClientCategorywiseTurnover from $startDate to $endDate")
 
-    val page = webClient.getPage("http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=1").asInstanceOf[HtmlPage]
+    try {
+      RetryFunExecutor.retry(3) {
+        val page = webClient.getPage("http://www.bseindia.com/markets/equity/EQReports/StockPrcHistori.aspx?expandable=7&flag=1").asInstanceOf[HtmlPage]
 
-    val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
-    dailyRadioButton.setChecked(true)
-    val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
-    fromDate.setValueAttribute(startDate)
+        val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
+        dailyRadioButton.setChecked(true)
+        val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
+        fromDate.setValueAttribute(startDate)
 
-    val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
-    toDate.setValueAttribute(endDate)
+        val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
+        toDate.setValueAttribute(endDate)
 
-    val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
-    val newPage = submitBtn.click().asInstanceOf[HtmlPage]
-    val content = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload2").
-      asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
-    content
+        val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
+        val newPage = submitBtn.click().asInstanceOf[HtmlPage]
+        val content = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload2").
+          asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
+        content
+      }
+    } catch {
+      case ex : Exception => logger.error(s"Error while Fetching BSEClientCategorywiseTurnover from $startDate to $endDate", ex)
+        throw ex
+    }
   }
 }
 

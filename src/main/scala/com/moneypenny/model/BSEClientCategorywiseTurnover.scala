@@ -9,7 +9,6 @@ import com.mongodb.casbah.commons.MongoDBObject
 import com.mongodb.{BasicDBObject, DBObject}
 import com.novus.salat._
 import com.novus.salat.global._
-import org.joda.time.format.DateTimeFormat
 
 /**
  * Created by vives on 1/1/15.
@@ -43,7 +42,7 @@ class BSEClientCategorywiseTurnoverDAO (collection : MongoCollection) {
   }
 
   def bulkInsert (bseClientCategorywiseTurnoverList : List[BSEClientCategorywiseTurnover]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseClientCategorywiseTurnoverList map {
       case bseClientCategorywiseTurnover => builder.insert(BSEClientCategorywiseTurnoverMap.toBson(bseClientCategorywiseTurnover))
     }
@@ -58,7 +57,7 @@ class BSEClientCategorywiseTurnoverDAO (collection : MongoCollection) {
   }
 
   def bulkUpdate (bseClientCategorywiseTurnoverList : List[BSEClientCategorywiseTurnover]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseClientCategorywiseTurnoverList map {
       case bseClientCategorywiseTurnover => builder.find(
         MongoDBObject("_id.tradeDate" -> bseClientCategorywiseTurnover._id.tradeDate)).upsert().update(
@@ -71,11 +70,16 @@ class BSEClientCategorywiseTurnoverDAO (collection : MongoCollection) {
     val doc = collection.findOne(MongoDBObject("_id.tradeDate" -> key.tradeDate)).getOrElse(return None)
     Some(BSEClientCategorywiseTurnoverMap.fromBsom(doc))
   }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEClientCategorywiseTurnoverMap.fromBsom(element)
+  }
 }
 
 
 case class RecordKey (x1:String, x2:String, x3:String, x4:String)
-case class Record (_id : RecordKey, x : String)
+case class Record (_id : RecordKey, x : Option[String], y : Option[String])
 
 object BSEClientCategorywiseTurnoverDAOTest {
   def main (args: Array[String]) {
@@ -86,35 +90,33 @@ object BSEClientCategorywiseTurnoverDAOTest {
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)
     org.apache.log4j.Logger.getLogger("org.apache.http").setLevel(org.apache.log4j.Level.OFF)
 
-    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
-    val tradeDate = dtf.parseLocalDateTime("28-January-2015 15:45:00")
-
-    val key = BSEClientCategorywiseTurnoverKey(tradeDate.toDate)
-    val bseClientCategorywiseTurnover = BSEClientCategorywiseTurnover(key, 1621.35,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
-
+//    val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
+//    val tradeDate = dtf.parseLocalDateTime("28-January-2015 15:45:00")
+//
+//    val key = BSEClientCategorywiseTurnoverKey(tradeDate.toDate)
+//    val bseClientCategorywiseTurnover = BSEClientCategorywiseTurnover(key, 1621.35,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
+//
     val context = new MongoContext
     context.connect()
 
-    val dao = new BSEClientCategorywiseTurnoverDAO(context.test_coll)
-
-    dao.insert(bseClientCategorywiseTurnover)
-
-    println(dao.findOne(key))
-    val bseClientCategorywiseTurnoverUpdated = BSEClientCategorywiseTurnover(key, 0,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
-    dao.bulkUpdate(List(bseClientCategorywiseTurnoverUpdated))
-    println(dao.findOne(key))
-
-//    val record = Record(RecordKey("a", "b", "c", "d"), "z")
+//    val dao = new BSEClientCategorywiseTurnoverDAO(context.test_coll)
 //
-//    val builder = context.test_coll.initializeOrderedBulkOperation
-//    import CaseClassToMapImplicits._
-//    builder.find(MongoDBObject("_id.x1" -> record._id.x1,
-//      "_id.x2" -> record._id.x2,
-//      "_id.x3" -> record._id.x3,
-//      "_id.x4" -> record._id.x4)).upsert().update(new BasicDBObject("$set", grater[Record].asDBObject(record)))
-//    println(grater[Record].asDBObject(record))
-//    println(MongoDBObject(record.toStringWithFields.filterKeys(_ != "_id").toList))
-//    println(builder.execute())
+//    dao.insert(bseClientCategorywiseTurnover)
+//
+//    println(dao.findOne(key))
+//    val bseClientCategorywiseTurnoverUpdated = BSEClientCategorywiseTurnover(key, 0,1690.43,-69.07,6.07,9.28,-3.21,824.35,819.85,4.50,4.51,7.43,-2.92,0.78,1.20,-0.42,27.51,58.22,-30.71,2454.14,2358.32,95.82)
+//    dao.bulkUpdate(List(bseClientCategorywiseTurnoverUpdated))
+//    println(dao.findOne(key))
+
+    val record = Record(RecordKey("a", "b", "c", "d"), Some("z"), Some("z"))
+
+    val builder = context.test_coll.initializeOrderedBulkOperation
+    builder.find(MongoDBObject("_id.x1" -> record._id.x1,
+      "_id.x2" -> record._id.x2,
+      "_id.x3" -> record._id.x3,
+      "_id.x4" -> record._id.x4)).upsert().update(new BasicDBObject("$set", grater[Record].asDBObject(record)))
+    println(grater[Record].asDBObject(record))
+    println(builder.execute())
 
   }
 }

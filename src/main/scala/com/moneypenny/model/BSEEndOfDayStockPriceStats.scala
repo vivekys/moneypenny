@@ -33,7 +33,7 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
   }
 
   def bulkInsert(bseEndOfDayStockPriceStatsList : List[BSEEndOfDayStockPriceStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEndOfDayStockPriceStatsList map {
       case bseEndOfDayStockPriceStats => builder.insert(BSEEndOfDayStockPriceStatsMap.toBson(bseEndOfDayStockPriceStats))
     }
@@ -52,7 +52,7 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
 
 
   def bulkUpdate(bseEndOfDayStockPriceStatsList : List[BSEEndOfDayStockPriceStats]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseEndOfDayStockPriceStatsList map {
       case bseEndOfDayStockPriceStats => builder.find(MongoDBObject("_id.currentDate" -> bseEndOfDayStockPriceStats._id.currentDate,
         "_id.key.scripCode" -> bseEndOfDayStockPriceStats._id.key.scripCode,
@@ -76,6 +76,11 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
       case doc :: Nil => Some(BSEEndOfDayStockPriceStatsMap.fromBsom(doc))
       case _ => None
     }
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSEEndOfDayStockPriceStatsMap.fromBsom(element)
   }
 }
 

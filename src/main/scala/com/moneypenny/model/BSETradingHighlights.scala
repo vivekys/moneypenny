@@ -14,7 +14,7 @@ import org.joda.time.format.DateTimeFormat
  * Created by vives on 11/30/14.
  */
 //http://www.bseindia.com/markets/Equity/EQReports/Tradinghighlights_histroical.aspx?expandable=7
-case class BSETradingHighlightsKey(date : Date)
+case class BSETradingHighlightsKey(tradeDate : Date)
 
 case class BSETradingHighlights(_id : BSETradingHighlightsKey,
                                 scripsTraded : Long,
@@ -49,7 +49,7 @@ class BSETradingHighlightsDAO (collection : MongoCollection) {
   }
 
   def bulkInsert (bseTradingHighlightsList : List[BSETradingHighlights]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseTradingHighlightsList map {
       case bseTradingHighlights => builder.insert(BSETradingHighlightsMap.toBson(bseTradingHighlights))
     }
@@ -57,15 +57,15 @@ class BSETradingHighlightsDAO (collection : MongoCollection) {
   }
 
   def update(bseTradingHighlights : BSETradingHighlights) = {
-    val query = MongoDBObject("_id.date" -> bseTradingHighlights._id.date)
+    val query = MongoDBObject("_id.tradeDate" -> bseTradingHighlights._id.tradeDate)
     val doc = BSETradingHighlightsMap.toBson(bseTradingHighlights)
     collection.update(query, doc, upsert=true)
   }
 
   def bulkUpdate (bseTradingHighlightsList : List[BSETradingHighlights]) = {
-    val builder = collection.initializeOrderedBulkOperation
+    val builder = collection.initializeUnorderedBulkOperation
     bseTradingHighlightsList map {
-      case bseTradingHighlights => builder.find(MongoDBObject("_id.date" -> bseTradingHighlights._id.date)).
+      case bseTradingHighlights => builder.find(MongoDBObject("_id.tradeDate" -> bseTradingHighlights._id.tradeDate)).
         upsert().update(
           new BasicDBObject("$set",BSETradingHighlightsMap.toBson(bseTradingHighlights)))
     }
@@ -73,8 +73,13 @@ class BSETradingHighlightsDAO (collection : MongoCollection) {
   }
 
   def findOne (key : BSETradingHighlightsKey) : Option[BSETradingHighlights] = {
-    val doc = collection.findOne(MongoDBObject("_id.date" -> key.date)).getOrElse(return None)
+    val doc = collection.findOne(MongoDBObject("_id.date" -> key.tradeDate)).getOrElse(return None)
     Some(BSETradingHighlightsMap.fromBsom(doc))
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    for (element <- doc) yield BSETradingHighlightsMap.fromBsom(element)
   }
 }
 
@@ -82,7 +87,6 @@ object BSETradingHighlightsDAOManagerTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
     RegisterConversionHelpers()
-    RegisterJodaLocalDateTimeConversionHelpers
 
     org.apache.log4j.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(org.apache.log4j.Level.FATAL)
     org.apache.log4j.Logger.getLogger("org.apache.commons.httpclient").setLevel(org.apache.log4j.Level.OFF)

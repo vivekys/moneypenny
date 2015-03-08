@@ -35,15 +35,38 @@ class BSEListOfScripsDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (bseListOfScrips : List[BSEListOfScrips]) = {
+    val builder = collection.initializeUnorderedBulkOperation
+    bseListOfScrips map {
+      case bseListOfScrip => builder.insert(BSEListOfScripsMap.toBson(bseListOfScrip))
+    }
+    builder.execute()
+  }
+
   def update(bseListOfScrips : BSEListOfScrips) = {
     val query = MongoDBObject("_id.scripCode" -> bseListOfScrips._id.scripCode)
     val doc = BSEListOfScripsMap.toBson(bseListOfScrips)
     collection.update(query, doc, upsert=true)
   }
 
+  def bulkUpdate (bseListOfScrips : List[BSEListOfScrips]) = {
+    val builder = collection.initializeUnorderedBulkOperation
+    bseListOfScrips map {
+      case bseListOfScrip => builder.find(MongoDBObject("_id.scripCode" -> bseListOfScrip._id.scripCode)).
+        upsert().update(
+          new BasicDBObject("$set",BSEListOfScripsMap.toBson(bseListOfScrip)))
+    }
+    builder.execute()
+  }
+
   def findOne (key : BSEListOfScripsKey) : Option[BSEListOfScrips] = {
     val doc = collection.findOne(MongoDBObject("_id.scripCode" -> key.scripCode)).getOrElse(return None)
     Some(BSEListOfScripsMap.fromBsom(doc))
+  }
+
+  def findAll = {
+    val doc = collection.find()
+    (for (element <- doc) yield BSEListOfScripsMap.fromBsom(element)) toList
   }
 }
 
