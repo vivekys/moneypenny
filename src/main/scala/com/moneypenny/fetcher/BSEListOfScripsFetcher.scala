@@ -2,7 +2,8 @@ package com.moneypenny.fetcher
 
 import com.gargoylesoftware.htmlunit.html.{HtmlAnchor, HtmlImageInput, HtmlPage, HtmlSelect}
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, Page, WebClient}
-import com.moneypenny.model.{BSEListOfScripsKey, BSEListOfScrips}
+import com.moneypenny.db.MongoContext
+import com.moneypenny.model.{BSEListOfScripsDAO, BSEListOfScripsKey, BSEListOfScrips}
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.apache.log4j.Logger
 import scala.collection.JavaConversions._
@@ -15,6 +16,14 @@ class BSEListOfScripsFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
   webClient.getOptions().setThrowExceptionOnScriptError(false)
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
+
+  def fetchListOfScrips = {
+    val context = new MongoContext
+    context.connect()
+
+    val dao = new BSEListOfScripsDAO(context.bseListOfScripsCollection)
+    dao.findAll
+  }
 
   def fetch = {
     logger.info("Fetching list of Scrips")

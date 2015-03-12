@@ -17,11 +17,8 @@ class BSEEndOfDayStockPriceFetcher {
   val logger = Logger.getLogger(this.getClass.getSimpleName)
 
   def fetchListOfScrips = {
-    val context = new MongoContext
-    context.connect()
-
-    val dao = new BSEListOfScripsDAO(context.bseListOfScripsCollection)
-    dao.findAll
+    val bSEListOfScripsFetcher = new BSEListOfScripsFetcher
+    bSEListOfScripsFetcher.fetchListOfScrips
   }
 
   def fetch (startDate : String, endDate : String, scripCode : Long, scripId : String, scripName : String) : Map[(Long, String, String), String] = {

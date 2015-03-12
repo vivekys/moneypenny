@@ -67,7 +67,7 @@ class BSEEndOfDayStockPriceDAO (collection : MongoCollection) {
 
   def bulkUpdate (bseEndOfDayStockPriceList : List[BSEEndOfDayStockPrice]) = {
     val builder = collection.initializeUnorderedBulkOperation
-    bseEndOfDayStockPriceList map {
+    bseEndOfDayStockPriceList.par map {
       case bseEndOfDayStockPrice => builder.find(MongoDBObject("_id.scripCode" -> bseEndOfDayStockPrice._id.scripCode,
         "_id.scripId" -> bseEndOfDayStockPrice._id.scripId,
         "_id.scripName" -> bseEndOfDayStockPrice._id.scripName,
