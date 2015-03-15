@@ -10,7 +10,9 @@
         <maven.compiler.target>1.6</maven.compiler.target>
         <encoding>UTF-8</encoding>
         <scala.tools.version>2.11</scala.tools.version>
-        <scala.version>2.11.5</scala.version>
+        <scala.version>2.11.4</scala.version>
+        <play2.version>2.4.0-M2</play2.version>
+        <play2.plugin.version>1.0.0-beta1</play2.plugin.version>
     </properties>
 
     <repositories>
@@ -26,7 +28,6 @@
         </repository>
         <repository>
             <id>novusRels</id>
-            <name>repo.novus rels</name>
             <url>http://repo.novus.com/releases/</url>
         </repository>
         <repository>
@@ -45,6 +46,30 @@
             <name>repo.novus snaps</name>
             <url>http://repo.novus.com/snapshots/</url>
         </repository>
+        <repository>
+            <id>typesafe</id>
+            <name>Typesafe - releases</name>
+            <url>https://repo.typesafe.com/typesafe/releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>sorm-framework</id>
+            <name>SORM - releases</name>
+            <url>http://markusjura.github.io/sorm/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>scalaz-bintray</id>
+            <name>Scalaz Bintray Repo - releases</name>
+            <url>http://dl.bintray.com/scalaz/releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
     </repositories>
 
   <dependencies>
@@ -53,6 +78,31 @@
       <artifactId>scala-library</artifactId>
       <version>${scala.version}</version>
     </dependency>
+
+      <!--<dependency>-->
+          <!--<groupId>com.typesafe.play</groupId>-->
+          <!--<artifactId>play_2.11</artifactId>-->
+          <!--<version>${play2.version}</version>-->
+      <!--</dependency>-->
+
+      <!--&lt;!&ndash; New in Play! 2.4.x &ndash;&gt;-->
+      <!--<dependency>-->
+          <!--<groupId>com.typesafe.play</groupId>-->
+          <!--<artifactId>play-netty-server_2.11</artifactId>-->
+          <!--<version>${play2.version}</version>-->
+      <!--</dependency>-->
+
+      <!--<dependency>-->
+          <!--<groupId>org.sorm-framework</groupId>-->
+          <!--<artifactId>sorm</artifactId>-->
+          <!--<version>0.4.1</version>-->
+      <!--</dependency>-->
+
+      <!--<dependency>-->
+          <!--<groupId>com.h2database</groupId>-->
+          <!--<artifactId>h2</artifactId>-->
+          <!--<version>1.4.177</version>-->
+      <!--</dependency>-->
 
       <dependency>
           <groupId>org.jsoup</groupId>
@@ -73,15 +123,15 @@
       </dependency>
 
       <dependency>
-          <groupId>log4j</groupId>
-          <artifactId>apache-log4j-extras</artifactId>
-          <version>1.2.17</version>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-core</artifactId>
+          <version>1.1.2</version>
       </dependency>
 
       <dependency>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-          <version>1.2.17</version>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+          <version>1.1.2</version>
       </dependency>
 
       <dependency>
@@ -91,33 +141,9 @@
       </dependency>
 
       <dependency>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-simple</artifactId>
-          <version>1.7.10</version>
-      </dependency>
-
-      <dependency>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-log4j12</artifactId>
-          <version>1.7.10</version>
-      </dependency>
-
-      <dependency>
           <groupId>org.apache.commons</groupId>
           <artifactId>commons-compress</artifactId>
           <version>1.9</version>
-      </dependency>
-
-      <dependency>
-          <groupId>org.apache.tika</groupId>
-          <artifactId>tika-core</artifactId>
-          <version>1.7</version>
-      </dependency>
-
-      <dependency>
-          <groupId>org.apache.tika</groupId>
-          <artifactId>tika-parsers</artifactId>
-          <version>1.7</version>
       </dependency>
 
       <dependency>
@@ -161,7 +187,17 @@
           <groupId>junit</groupId>
           <artifactId>junit</artifactId>
           <version>4.11</version>
+          <scope>test</scope>
       </dependency>
+
+      <dependency>
+          <groupId>com.typesafe.play</groupId>
+          <artifactId>play-test_2.11</artifactId>
+          <version>${play2.version}</version>
+          <scope>test</scope>
+      </dependency>
+
+
       <!--<dependency>-->
           <!--<groupId>org.specs2</groupId>-->
           <!--<artifactId>specs2_${scala.tools.version}</artifactId>-->
@@ -183,16 +219,33 @@
   </dependencies>
 
     <build>
+        <sourceDirectory>${basedir}/app</sourceDirectory>
+        <testSourceDirectory>${basedir}/test</testSourceDirectory>
         <resources>
             <resource>
-                <directory>src/main/resources</directory>
-                <includes>
-                    <include>application.conf</include>
-                    <include>log4j.xml</include>
-                </includes>
+                <directory>${basedir}/conf</directory>
+            </resource>
+            <resource>
+                <directory>${basedir}/public</directory>
+                <targetPath>public</targetPath>
             </resource>
         </resources>
+
         <plugins>
+            <plugin>
+                <groupId>com.google.code.play2-maven-plugin</groupId>
+                <artifactId>play2-maven-plugin</artifactId>
+                <version>${play2.plugin.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <id>default-play2-compile-assets</id>
+                        <goals>
+                            <goal>coffee-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <!-- see http://davidb.github.com/scala-maven-plugin -->
                 <groupId>net.alchim31.maven</groupId>
