@@ -66,6 +66,7 @@ class YahooListOfScripsFetcher {
             }
           }) filter (_._1.isDefined) map {
             case (Some(symbol), (Some(scripName), Some(exchange))) => (symbol, (scripName, exchange))
+            case _ => ("", ("", ""))
           } toMap
         }
         else {
@@ -86,7 +87,7 @@ class YahooListOfScripsFetcher {
         val lastPage = lastParams.get("b").get.toInt
         0 to lastPage by inc
       }
-      case (None, None) => {
+      case _ => {
         0 to 0
       }
     }
