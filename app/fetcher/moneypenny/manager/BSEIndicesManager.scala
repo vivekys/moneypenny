@@ -35,7 +35,7 @@ class BSEIndicesManager extends Job {
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
     indices map {
       case ((indexId, indexName), data) => CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords map {
-        csvRecord =>
+        csvRecord => try {
           val dateStr = csvRecord.get("Date") + " 15:45:00"
           val bseIndicesKey = new BSEIndicesKey(indexId, indexName, dtf.parseLocalDateTime(dateStr).toDate)
           val bseIndices = new BSEIndices(bseIndicesKey,
@@ -43,8 +43,13 @@ class BSEIndicesManager extends Job {
             if (csvRecord.get("High").length == 0)  0 else csvRecord.get("High").toDouble,
             if (csvRecord.get("Low").length == 0)  0 else csvRecord.get("Low").toDouble,
             if (csvRecord.get("Close").length == 0)  0 else csvRecord.get("Close").toDouble)
-          bseIndices
-      }
+          Some(bseIndices)
+        } catch {
+          case ex : Exception => logger.info("Exception while parsing BSEIndices records for " +
+            "csvRecord " + csvRecord, ex)
+            None
+        }
+      } flatten
     } flatMap {
       case ar => ar.toList
     }

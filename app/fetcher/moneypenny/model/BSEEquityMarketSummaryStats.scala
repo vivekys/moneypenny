@@ -42,7 +42,7 @@ class BSEEquityMarketSummaryStatsDAO (collection : MongoCollection) {
 
   def update(bseEquityMarketSummaryStats : BSEEquityMarketSummaryStats) = {
     val query = MongoDBObject("_id.currentDate" -> bseEquityMarketSummaryStats._id.currentDate,
-      "_id.key.date" -> bseEquityMarketSummaryStats._id.key.date)
+      "_id.key.date" -> bseEquityMarketSummaryStats._id.key.tradeDate)
     val doc = BSEEquityMarketSummaryStatsMap.toBson(bseEquityMarketSummaryStats)
     collection.update(query, doc, upsert=true)
   }
@@ -52,7 +52,7 @@ class BSEEquityMarketSummaryStatsDAO (collection : MongoCollection) {
     bseEquityMarketSummaryStatsList map {
       case bseEquityMarketSummaryStats => builder.find(
         MongoDBObject("_id.currentDate" -> bseEquityMarketSummaryStats._id.currentDate,
-        "_id.key.date" -> bseEquityMarketSummaryStats._id.key.date)).upsert().update(
+        "_id.key.date" -> bseEquityMarketSummaryStats._id.key.tradeDate)).upsert().update(
           new BasicDBObject("$set",BSEEquityMarketSummaryStatsMap.toBson(bseEquityMarketSummaryStats)))
     }
     builder.execute()

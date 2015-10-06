@@ -20,14 +20,15 @@ class MoneycontrolFinancialFetcher {
   webClient.setAjaxController(new NicelyResynchronizingAjaxController())
 
   def hasData (page : HtmlPage) = {
-    page != null && !page.asText().contains("Data Not Available for Balance Sheet")
+    page != null && !page.asText().contains("Data Not Available for")
   }
 
   def fetchData (financialType : String, page : HtmlPage) = {
     var currentPage = page
-    val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
+    val returnMap = scala.collection.mutable.LinkedHashMap.empty[String, Map[String, Option[Number]]]
     do {
-      val siblingTable = DomUtil.findTableElement(page, financialType).get
+      val finType = if (financialType.contains("Nine Monthly Results")) "Nine Months" else financialType
+      val siblingTable = DomUtil.findTableElement(currentPage, finType).get
       var nextSibling = siblingTable.getNextSibling
       while (!nextSibling.isInstanceOf[HtmlTable]) {
         nextSibling = nextSibling.getNextSibling
@@ -53,13 +54,11 @@ class MoneycontrolFinancialFetcher {
 
   def fetchStandaloneData (financialType : String, url : String) = {
     logger.info(s"Extracting fetchStandaloneData - $url")
-    val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
     fetchData(financialType, webClient.getPage(url).asInstanceOf[HtmlPage])
   }
 
   def fetchConsolidatedData (financialType : String, url : String) = {
     logger.info(s"Extracting fetchConsolidatedData - $url")
-    val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
     val page = webClient.getPage(url).asInstanceOf[HtmlPage]
     val consolidatedPageAnchor = page.getAnchorByText("Consolidated")
     val consolidatedPage = webClient.getPage(page.getFullyQualifiedUrl(consolidatedPageAnchor.getHrefAttribute)).asInstanceOf[HtmlPage]
@@ -68,7 +67,7 @@ class MoneycontrolFinancialFetcher {
 
   def fetch (financialType : String, url : String) = {
     logger.info(s"Extracting $financialType - $url")
-    val returnMap = LinkedHashMap.empty[String, LinkedHashMap[(String, String), String]]
+    val returnMap = LinkedHashMap.empty[String, LinkedHashMap[String, Map[String, Option[Number]]]]
     val page = webClient.getPage(url).asInstanceOf[HtmlPage]
     if (page.asText().contains("Standalone"))
       returnMap.put(financialType + "-Standalone", fetchStandaloneData(financialType, url))
@@ -76,6 +75,17 @@ class MoneycontrolFinancialFetcher {
       returnMap.put(financialType + "-Consolidated", fetchConsolidatedData(financialType, url))
     returnMap
   }
+
+  def fetchAllFinancialData (url : String) = {
+    val returnMap = LinkedHashMap.empty[String, LinkedHashMap[String, Map[String, Option[Number]]]]
+    val finList = MoneycontrolFinListFetcher.fetchFinURLs(url)
+    for ((k,v) <- finList) {
+      if (!k.contains("Capital Structure"))
+        returnMap ++= fetch(k, v)
+    }
+    returnMap
+  }
+
 }
 
 object MoneycontrolFinancialFetcher {
@@ -83,15 +93,9 @@ object MoneycontrolFinancialFetcher {
     java.util.logging.Logger.getLogger("com.gargoylesoftware").setLevel(java.util.logging.Level.SEVERE)
     System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog")
 
-    val returnMap = LinkedHashMap.empty[String, LinkedHashMap[(String, String), String]]
-    val mcBalSheetFetcher = new MoneycontrolFinancialFetcher
-    val finList = MoneycontrolFinListFetcher.fetchFinURLs("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01")
 
-//    mcBalSheetFetcher.fetch("Nine Monthly Results", "http://www.moneycontrol.com/financials/akcapitalservices/results/nine-months/AKC01#AKC01")
-    for ((k,v) <- finList) {
-      if (!k.contains("Capital Structure") && !k.contains("Nine Monthly Results"))
-      returnMap ++= mcBalSheetFetcher.fetch(k, v)
-    }
+    val mcBalSheetFetcher = new MoneycontrolFinancialFetcher
+    val returnMap = mcBalSheetFetcher.fetchAllFinancialData("http://www.moneycontrol.com/india/stockpricequote/financegeneral/akcapitalservices/AKC01")
     println(returnMap)
 //    println(mcBalSheetFetcher.fetchStandaloneData("http://www.moneycontrol.com/financials/akcapitalservices/results/quarterly-results/AKC01#AKC01"))
   }

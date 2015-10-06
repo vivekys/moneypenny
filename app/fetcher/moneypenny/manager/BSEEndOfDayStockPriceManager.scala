@@ -6,13 +6,14 @@ import com.moneypenny.db.MongoContext
 import com.moneypenny.fetcher.{BSEEndOfDayStockPriceFetcher, BSEListOfScripsFetcher}
 import com.moneypenny.model._
 import com.moneypenny.util.RunableDates
-import org.apache.commons.csv.{CSVFormat, CSVParser}
+import org.apache.commons.csv.{CSVRecord, CSVFormat, CSVParser}
 import org.joda.time.format.DateTimeFormat
 import org.quartz._
 import org.quartz.impl.StdSchedulerFactory
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
+import scala.collection.parallel.immutable.ParSeq
 
 /**
  * Created by vives on 3/1/15.
@@ -28,8 +29,11 @@ class BSEEndOfDayStockPriceManager extends Job {
   val bseEndOfDayStockPriceStatsDAO = new BSEEndOfDayStockPriceStatsDAO(context.bseEndOfDayStockPriceStatsCollection)
 
   def fetchListOfScrips = {
-    val bSEListOfScripsFetcher = new BSEListOfScripsFetcher
-    bSEListOfScripsFetcher.fetchListOfScrips
+    val context = new MongoContext
+    context.connect()
+
+    val dao = new BSEListOfScripsDAO(context.bseListOfScripsCollection)
+    dao.findAll
   }
 
   def getLastRun = {
@@ -41,9 +45,15 @@ class BSEEndOfDayStockPriceManager extends Job {
     data map {
       case (key, data) =>
         val (scripCode, scripId, scripName) = key
-        logger.debug("BSEEndOfDayStockPrice data as String")
-        logger.debug(data)
-        val value = CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords.par
+
+        val value = try {
+          CSVParser.parse(data, CSVFormat.EXCEL.withHeader()).getRecords.par
+        } catch {
+          case ex : Exception => logger.info("Exception while parsing BSEEndOfDayStockPrice records for " +
+            s"$scripCode, $scripId, $scripName with data as " + data, ex)
+            ParSeq.empty[CSVRecord]
+        }
+
         logger.info("Parsing BSEEndOfDayStockPrice Records - " + value.length)
         value map {
           csvRecord =>
@@ -117,15 +127,16 @@ class BSEEndOfDayStockPriceManager extends Job {
   def insert = {
     val list = fetch
     logger.info("Inserting " + list.length + " BSEEndOfDayStockPrice records")
+    val currentDate = new Date()
     list.grouped(10000).foreach {
       case sList => {
         val res1 =  bseEndOfDayStockPriceDAO.bulkUpdate(sList)
         val statsList = sList map {
           case bseEndOfDayStockPrice => {
-            BSEEndOfDayStockPriceStats(BSEEndOfDayStockPriceStatsKey(new Date(), bseEndOfDayStockPrice._id), bseEndOfDayStockPrice._id.tradeDate, "OK")
+            BSEEndOfDayStockPriceStats(BSEEndOfDayStockPriceStatsKey(currentDate, bseEndOfDayStockPrice._id), bseEndOfDayStockPrice._id.tradeDate, "OK")
           }
         }
-        val res2 = bseEndOfDayStockPriceStatsDAO.bulkInsert(statsList)
+        val res2 = bseEndOfDayStockPriceStatsDAO.bulkUpdate(statsList)
         logger.info("Result1 - " + res1)
         logger.info("Result2 - " + res2)
       }

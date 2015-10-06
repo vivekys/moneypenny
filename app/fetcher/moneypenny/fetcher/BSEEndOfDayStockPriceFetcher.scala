@@ -38,22 +38,24 @@ class BSEEndOfDayStockPriceFetcher {
         val searchInput = page.getElementByName("ctl00$ContentPlaceHolder1$GetQuote1_smartSearch").asInstanceOf[HtmlTextInput]
         searchInput.`type`(scripId)
         val list = page.getElementById("listEQ").asInstanceOf[HtmlUnorderedList]
-        val element = list.getElementsByTagName("a").get(0).asInstanceOf[HtmlAnchor]
-        element.click()
+        if (list != null && list.getElementsByTagName("a").length != 0) {
+          val element = list.getElementsByTagName("a").get(0).asInstanceOf[HtmlAnchor]
+          element.click()
 
-        val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
-        dailyRadioButton.setChecked(true)
-        val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
-        fromDate.setValueAttribute(startDate)
+          val dailyRadioButton = page.getElementById("ctl00_ContentPlaceHolder1_rdbDaily").asInstanceOf[HtmlRadioButtonInput]
+          dailyRadioButton.setChecked(true)
+          val fromDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtFromDate").asInstanceOf[HtmlInput]
+          fromDate.setValueAttribute(startDate)
 
-        val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
-        toDate.setValueAttribute(endDate)
+          val toDate = page.getElementByName("ctl00$ContentPlaceHolder1$txtToDate").asInstanceOf[HtmlInput]
+          toDate.setValueAttribute(endDate)
 
-        val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
-        val newPage = submitBtn.click().asInstanceOf[HtmlPage]
-        val data = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload").
-          asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
-        returnMap.put((scripCode, scripId, scripName), data)
+          val submitBtn = page.getElementByName("ctl00$ContentPlaceHolder1$btnSubmit").asInstanceOf[HtmlImageInput]
+          val newPage = submitBtn.click().asInstanceOf[HtmlPage]
+          val data = newPage.getElementByName("ctl00$ContentPlaceHolder1$btnDownload").
+            asInstanceOf[HtmlImageInput].click.getWebResponse.getContentAsString
+          returnMap.put((scripCode, scripId, scripName), data)
+        }
       }
     } catch {
       case ex : Exception => logger.info(s"Error while Fetching data for $scripId from $startDate to $endDate", ex)

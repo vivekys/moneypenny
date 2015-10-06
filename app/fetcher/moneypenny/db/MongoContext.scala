@@ -34,6 +34,12 @@ class MongoContext {
   lazy val bseListOfScripsCollection = _db("bseListOfScripsCollection")
   lazy val bseListOfScripsStatsCollection = _db("bseListOfScripsStatsCollection")
 
+  lazy val yahooListOfScripsCollection = _db("yahooListOfScripsCollection")
+  lazy val yahooListOfScripsStatsCollection = _db("yahooListOfScripsStatsCollection")
+
+  lazy val yahooAdjustedClosePriceCollection = _db("YahooAdjustedClosePriceCollection")
+  lazy val yahooAdjustedClosePriceStatsCollection = _db("YahooAdjustedClosePriceStatsCollection")
+
   lazy val bseTradingHighlightsCollection = _db("bseTradingHighlightsCollection")
   lazy val bseTradingHighlightsStatsCollection = _db("bseTradingHighlightsStatsCollection")
 
@@ -51,6 +57,9 @@ class MongoContext {
 
   lazy val halfYearlyResultsCollection = _db("halfYearlyResultsCollection")
   lazy val halfYearlyResultsStatsCollection = _db("halfYearlyResultsStatsCollection")
+
+  lazy val nineMonthResultsCollection = _db("nineMonthResultsCollection")
+  lazy val nineMonthResultsStatsCollection = _db("nineMonthResultsStatsCollection")
 
   lazy val yearlyResultsCollection = _db("yearlyResultsCollection")
   lazy val yearlyResultsStatsCollection = _db("yearlyResultsStatsCollection")
@@ -74,6 +83,7 @@ class MongoContext {
 
     val server = new ServerAddress("localhost", port)
     val client = MongoClient(server)
+    logger.info(s"Connecting to DB - $host : $port")
     _db = client(dbName)
 
   }

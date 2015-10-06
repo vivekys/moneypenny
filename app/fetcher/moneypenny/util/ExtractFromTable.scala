@@ -1,5 +1,7 @@
 package com.moneypenny.util
 
+import java.text.NumberFormat
+
 import com.gargoylesoftware.htmlunit.html.HtmlTable
 
 import scala.collection.JavaConversions._
@@ -12,8 +14,7 @@ import scala.util.control.Breaks._
 object ExtractFromTable {
   def extractFromHtmlTable (table : HtmlTable) = {
     var startRow = 0
-    var canInsert = false
-    val returnMap = scala.collection.mutable.LinkedHashMap.empty[(String, String), String]
+    val returnMap = scala.collection.mutable.LinkedHashMap.empty[String, Map[String, Option[Number]]]
     val columnMap = scala.collection.mutable.LinkedHashMap.empty[Int, String]
     breakable {
       for (i <- 0 until table.getRows.length) {
@@ -33,7 +34,7 @@ object ExtractFromTable {
 
     for (i <- (startRow + 1) until table.getRows.length) {
       if (! table.getRows.get(i).getCells.get(0).asText().isEmpty) {
-        val rowName = table.getRows.get(i).getCells.get(0).asText()
+        val rowName = table.getRows.get(i).getCells.get(0).asText().replaceAllLiterally(".", "")
         val colValues = ArrayBuffer.empty[(Int, String)]
         for (j  <- 1 until table.getRows.get(i).getCells.length) {
           if (! table.getRows.get(i).getCells.get(j).asText().isEmpty) {
@@ -41,8 +42,21 @@ object ExtractFromTable {
           }
         }
         if (!colValues.isEmpty) {
-          for (vls <- colValues)
-            returnMap.put((columnMap.get(vls._1).get, rowName), vls._2)
+          for (vls <- colValues) {
+            val dataMap = scala.collection.mutable.LinkedHashMap.empty[String, Option[Number]]
+            val nf = NumberFormat.getInstance
+            val numericValue = try {
+              Some(nf.parse(vls._2))
+            } catch {
+              case ex : Exception => None
+            }
+            dataMap.put(rowName, numericValue)
+            val value = returnMap.get(columnMap.get(vls._1).get) match {
+              case Some(data) =>  dataMap ++ data
+              case None => dataMap
+            }
+            returnMap.put(columnMap.get(vls._1).get, value.toMap)
+          }
         }
       }
     }

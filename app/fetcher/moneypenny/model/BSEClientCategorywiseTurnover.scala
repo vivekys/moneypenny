@@ -23,7 +23,7 @@ case class BSEClientCategorywiseTurnover (_id : BSEClientCategorywiseTurnoverKey
                                           IFIsBuy : Double,	IFIsSales : Double, IFIsNet : Double,
                                           banksBuy : Double, banksSales : Double,	banksNet : Double,
                                           insuranceBuy : Double, insuranceSales : Double,	insuranceNet : Double,
-                                          DIIBuy : Double, DIISales : Double,	DIINet : Double)
+                                            DIIBuy : Double, DIISales : Double,	DIINet : Double)
 
 object BSEClientCategorywiseTurnoverMap {
   def toBson(bseClientCategorywiseTurnover : BSEClientCategorywiseTurnover) = {

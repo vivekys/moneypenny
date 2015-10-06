@@ -13,7 +13,7 @@ import org.joda.time.format.DateTimeFormat
 /**
  * Created by vives on 2/13/15.
  */
-case class BSECorporateActionKey (scripCode : Long, scripId : String, scripName : String, exDate : Option[Date],
+case class BSECorporateActionKey (scripCode : Long, scripName : String, exDate : Option[Date],
                                   purpose : Option[String],
                                   recordDate : Option[Date],
                                   bcStartDate : Option[Date],
@@ -51,7 +51,6 @@ class BSECorporateActionDAO (collection : MongoCollection) {
 
   def update(bseCorporateAction : BSECorporateAction) = {
     val query = MongoDBObject("_id.scripCode" -> bseCorporateAction._id.scripCode,
-      "_id.scripId" -> bseCorporateAction._id.scripId,
       "_id.scripName" -> bseCorporateAction._id.scripName,
       "_id.exDate" -> bseCorporateAction._id.exDate,
       "_id.purpose" -> bseCorporateAction._id.purpose,
@@ -69,7 +68,6 @@ class BSECorporateActionDAO (collection : MongoCollection) {
     val builder = collection.initializeUnorderedBulkOperation
     bseCorporateActionList map {
       case bseCorporateAction => builder.find(MongoDBObject("_id.scripCode" -> bseCorporateAction._id.scripCode,
-        "_id.scripId" -> bseCorporateAction._id.scripId,
         "_id.scripName" -> bseCorporateAction._id.scripName,
         "_id.exDate" -> bseCorporateAction._id.exDate,
         "_id.purpose" -> bseCorporateAction._id.purpose,
@@ -86,7 +84,6 @@ class BSECorporateActionDAO (collection : MongoCollection) {
 
   def findOne (key : BSECorporateActionKey) : Option[BSECorporateAction] = {
     val doc = collection.findOne(MongoDBObject("_id.scripCode" -> key.scripCode,
-      "_id.scripId" -> key.scripId,
       "_id.scripName" -> key.scripName,
       "_id.exDate" -> key.exDate,
       "_id.purpose" -> key.purpose,
@@ -116,7 +113,7 @@ object BSECorporateActionDAOTest {
     val dtf = DateTimeFormat.forPattern("dd-MMM-yyyy HH:mm:ss")
     val localDate = dtf.parseLocalDateTime("28-January-2015 15:45:00")
 
-    val key = BSECorporateActionKey(500043,"BATAINDIA","BATA INDIA LTD.", Some(localDate.toDate),Some("Dividend - Rs.1.50"),None,
+    val key = BSECorporateActionKey(500043, "BATA INDIA LTD.", Some(localDate.toDate),Some("Dividend - Rs.1.50"),None,
       Some(localDate.toDate),Some(localDate.toDate), Some(localDate.toDate),Some(localDate.toDate),None)
     val bseCorporateAction = BSECorporateAction(key)
 

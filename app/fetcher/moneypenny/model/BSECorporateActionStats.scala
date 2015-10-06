@@ -43,7 +43,6 @@ class BSECorporateActionStatsDAO (collection : MongoCollection) {
   def update(bseCorporateActionStats : BSECorporateActionStats) = {
     val query = MongoDBObject("_id.currentDate" -> bseCorporateActionStats._id.currentDate,
       "_id.key.scripCode" -> bseCorporateActionStats._id.key.scripCode,
-      "_id.key.scripId" -> bseCorporateActionStats._id.key.scripId,
       "_id.key.scripName" -> bseCorporateActionStats._id.key.scripName,
       "_id.key.exDate" -> bseCorporateActionStats._id.key.exDate,
       "_id.key.purpose" -> bseCorporateActionStats._id.key.purpose,
@@ -63,7 +62,6 @@ class BSECorporateActionStatsDAO (collection : MongoCollection) {
     bseCorporateActionStatsList map {
       case bseCorporateActionStats => builder.find(MongoDBObject("_id.currentDate" -> bseCorporateActionStats._id.currentDate,
         "_id.key.scripCode" -> bseCorporateActionStats._id.key.scripCode,
-        "_id.key.scripId" -> bseCorporateActionStats._id.key.scripId,
         "_id.key.scripName" -> bseCorporateActionStats._id.key.scripName,
         "_id.key.exDate" -> bseCorporateActionStats._id.key.exDate,
         "_id.key.purpose" -> bseCorporateActionStats._id.key.purpose,

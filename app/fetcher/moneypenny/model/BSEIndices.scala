@@ -60,7 +60,7 @@ class BSEIndicesDAO (collection : MongoCollection) {
         "_id.tradeDate" -> bseIndices._id.tradeDate)).upsert().update(
           new BasicDBObject("$set",BSEIndicesMap.toBson(bseIndices)))
     }
-    builder.execute()
+    builder.execute(WriteConcern.Safe)
   }
 
   def findOne (key : BSEIndicesKey) : Option[BSEIndices] = {

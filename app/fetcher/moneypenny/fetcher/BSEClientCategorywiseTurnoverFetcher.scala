@@ -4,6 +4,7 @@ import com.gargoylesoftware.htmlunit.html._
 import com.gargoylesoftware.htmlunit.{BrowserVersion, NicelyResynchronizingAjaxController, WebClient}
 import com.moneypenny.model.{BSEClientCategorywiseTurnover, BSEClientCategorywiseTurnoverKey}
 import com.moneypenny.util.RetryFunExecutor
+import fetcher.moneypenny.util.WebClientFactory
 import org.apache.commons.csv.{CSVFormat, CSVParser}
 import org.joda.time.format.DateTimeFormat
 import org.slf4j.LoggerFactory
@@ -12,12 +13,12 @@ import scala.collection.JavaConversions._
 
 /**
  * Created by vives on 1/1/15.
+ *
+ * Always fetch from the beginning of time till current date
  */
 class BSEClientCategorywiseTurnoverFetcher {
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName)
-  val webClient = new WebClient(BrowserVersion.CHROME)
-  webClient.getOptions().setThrowExceptionOnScriptError(false)
-  webClient.setAjaxController(new NicelyResynchronizingAjaxController())
+  val webClient = WebClientFactory.getWebClient
 
   def fetch (startDate : String, endDate : String) = {
     logger.info(s"Fetching BSEClientCategorywiseTurnover from $startDate to $endDate")

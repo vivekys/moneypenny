@@ -15,7 +15,7 @@ import org.joda.time.format.DateTimeFormat
  * Created by vives on 11/30/14.
  */
 //http://www.bseindia.com/markets/Equity/EQReports/Historical_EquitySegment.aspx?expandable=7
-case class BSEEquityMarketSummaryKey (date : Date)
+case class BSEEquityMarketSummaryKey (tradeDate : Date)
 
 case class BSEEquityMarketSummary(_id : BSEEquityMarketSummaryKey, numCompaniesTraded : Long, numTrades : Long,
                                   numShares : Long, netTurnOver : Double)
@@ -46,7 +46,7 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   }
 
   def update(bseEquityMarketSummary : BSEEquityMarketSummary) = {
-    val query = MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)
+    val query = MongoDBObject("_id.tradeDate" -> bseEquityMarketSummary._id.tradeDate)
     val doc = BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary)
     collection.update(query, doc, upsert=true)
   }
@@ -54,7 +54,7 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
   def bulkUpdate (bseEquityMarketSummaryList : List[BSEEquityMarketSummary]) = {
     val builder = collection.initializeUnorderedBulkOperation
     bseEquityMarketSummaryList map {
-      case bseEquityMarketSummary => builder.find(MongoDBObject("_id.date" -> bseEquityMarketSummary._id.date)).
+      case bseEquityMarketSummary => builder.find(MongoDBObject("_id.tradeDate" -> bseEquityMarketSummary._id.tradeDate)).
         upsert().update(
           new BasicDBObject("$set",BSEEquityMarketSummaryMap.toBson(bseEquityMarketSummary)))
     }
@@ -63,7 +63,7 @@ class BSEEquityMarketSummaryDAO (collection : MongoCollection) {
 
 
   def findOne (key : BSEEquityMarketSummaryKey) : Option[BSEEquityMarketSummary] = {
-    val doc = collection.findOne(MongoDBObject("_id.date" -> key.date)).getOrElse(return None)
+    val doc = collection.findOne(MongoDBObject("_id.tradeDate" -> key.tradeDate)).getOrElse(return None)
     Some(BSEEquityMarketSummaryMap.fromBsom(doc))
   }
 

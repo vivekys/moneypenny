@@ -45,7 +45,7 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
       "_id.key.scripCode" -> bseEndOfDayStockPriceStats._id.key.scripCode,
       "_id.key.scripId" -> bseEndOfDayStockPriceStats._id.key.scripId,
       "_id.key.scripName" -> bseEndOfDayStockPriceStats._id.key.scripName,
-      "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.tradeDate)
+      "_id.key.tradeDate" -> bseEndOfDayStockPriceStats._id.key.tradeDate)
     val doc = BSEEndOfDayStockPriceStatsMap.toBson(bseEndOfDayStockPriceStats)
     collection.update(query, doc, upsert=true)
   }
@@ -58,7 +58,7 @@ class BSEEndOfDayStockPriceStatsDAO (collection : MongoCollection) {
             "_id.key.scripCode" -> bseEndOfDayStockPriceStats._id.key.scripCode,
             "_id.key.scripId" -> bseEndOfDayStockPriceStats._id.key.scripId,
             "_id.key.scripName" -> bseEndOfDayStockPriceStats._id.key.scripName,
-            "_id.key.date" -> bseEndOfDayStockPriceStats._id.key.tradeDate)).upsert().update(
+            "_id.key.tradeDate" -> bseEndOfDayStockPriceStats._id.key.tradeDate)).upsert().update(
               new BasicDBObject("$set",BSEEndOfDayStockPriceStatsMap.toBson(bseEndOfDayStockPriceStats)))
       }
     builder.execute()

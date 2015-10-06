@@ -2,6 +2,7 @@ package com.moneypenny.model
 
 import java.util.Date
 
+import com.moneypenny.db.MongoContext
 import com.mongodb.DBObject
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
@@ -12,9 +13,9 @@ import com.novus.salat.global._
 /**
  * Created by vives on 2/16/15.
  */
-case class FinancialsKey (name : String, financial : String, financialType : String, fyDate : Date)
+case class FinancialsKey (companyName : String, financial : String, financialType : String, fyDate : Date)
 
-case class Financials (_id : FinancialsKey, data : Map[String, String])
+case class Financials (_id : FinancialsKey, data : Map[String, Option[Number]])
 
 object FinancialsMap {
   def toBson(financials : Financials) = {
@@ -32,8 +33,16 @@ class FinancialsDAO (collection : MongoCollection) {
     collection.insert(doc)
   }
 
+  def bulkInsert (financialsList : List[Financials]) = {
+    val builder = collection.initializeOrderedBulkOperation
+    financialsList map {
+      case financials => builder.insert(FinancialsMap.toBson(financials))
+    }
+    builder.execute()
+  }
+
   def update(financials : Financials) = {
-    val query = MongoDBObject("_id.name" -> financials._id.name,
+    val query = MongoDBObject("_id.companyName" -> financials._id.companyName,
       "_id.financial" -> financials._id.financial,
       "_id.financialType" -> financials._id.financialType,
       "_id.fyDate" -> financials._id.fyDate)
@@ -41,8 +50,20 @@ class FinancialsDAO (collection : MongoCollection) {
     collection.update(query, doc, upsert=true)
   }
 
+  def bulkUpdate (financialsList : List[Financials]) = {
+    val builder = collection.initializeUnorderedBulkOperation
+    financialsList map {
+      case financials => builder.find(MongoDBObject("_id.companyName" -> financials._id.companyName,
+        "_id.financial" -> financials._id.financial,
+        "_id.financialType" -> financials._id.financialType,
+        "_id.fyDate" -> financials._id.fyDate)).upsert().update(
+          new BasicDBObject("$set", FinancialsMap.toBson(financials)))
+    }
+    builder.execute()
+  }
+
   def findOne (key : FinancialsKey) : Option[Financials] = {
-    val doc = collection.findOne(MongoDBObject("_id.name" -> key.name,
+    val doc = collection.findOne(MongoDBObject("_id.companyName" -> key.companyName,
       "_id.financial" -> key.financial,
       "_id.financialType" -> key.financialType,
       "_id.fyDate" -> key.fyDate)).getOrElse(return None)
@@ -55,7 +76,37 @@ class FinancialsDAO (collection : MongoCollection) {
   }
 }
 
+object FinancialsDAOUtil {
+  def getFinancialCollection (financial : String) = {
+    val context = new MongoContext
+    context.connect()
+    financial match {
+      case "Ratios" => context.ratiosCollection
+      case "Quarterly Results" => context.quarterlyResultsCollection
+      case "Balance Sheet" => context.balanceSheetCollection
+      case "Yearly Results" => context.yearlyResultsCollection
+      case "Nine Monthly Results" => context.nineMonthResultsCollection
+      case "Profit & Loss" => context.profitAndLossCollection
+      case "Cash Flow" => context.cashFlowCollection
+      case "Half Yearly Results" => context.halfYearlyResultsCollection
+    }
+  }
 
+  def getFinancialStatsCollection (financial : String) = {
+    val context = new MongoContext
+    context.connect()
+    financial match {
+      case "Ratios" => context.ratiosStatsCollection
+      case "Quarterly Results" => context.quarterlyResultsStatsCollection
+      case "Balance Sheet" => context.balanceSheetStatsCollection
+      case "Yearly Results" => context.yearlyResultsStatsCollection
+      case "Nine Monthly Results" => context.nineMonthResultsStatsCollection
+      case "Profit & Loss" => context.profitAndLossStatsCollection
+      case "Cash Flow" => context.cashFlowStatsCollection
+      case "Half Yearly Results" => context.halfYearlyResultsStatsCollection
+    }
+  }
+}
 object FinancialsDAOTest {
   def main (args: Array[String]) {
     import com.mongodb.casbah.commons.conversions.scala._
