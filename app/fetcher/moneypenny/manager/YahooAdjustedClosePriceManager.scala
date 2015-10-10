@@ -6,7 +6,6 @@ import com.moneypenny.db.MongoContext
 import fetcher.moneypenny.fetcher.YahooAdjustedClosePriceFetcher
 import fetcher.moneypenny.model._
 import org.apache.commons.csv.{CSVFormat, CSVParser}
-import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.quartz.impl.StdSchedulerFactory
 import org.quartz._

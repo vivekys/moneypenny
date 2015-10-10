@@ -3,6 +3,7 @@ package fetcher.moneypenny.fetcher
 import java.util.concurrent.TimeUnit
 import java.util.Calendar
 
+import com.moneypenny.util.RetryFunExecutor
 import com.ning.http.client.{Response, AsyncCompletionHandler, AsyncHttpClient}
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConversions._
@@ -28,14 +29,20 @@ class YahooAdjustedClosePriceFetcher {
 
     logger.info(s"Fetching adjusted closing price for $url")
 
-    asyncHttpClient.prepareGet(url).execute(new AsyncCompletionHandler[Option[String]](){
-      override def onCompleted(response: Response): Option[String] = {
-        if (response.getStatusCode >= 400)
-          None
-        else
-          Some(response.getResponseBody)
+    try {
+      RetryFunExecutor.retry(3) {
+        asyncHttpClient.prepareGet(url).execute(new AsyncCompletionHandler[Option[String]](){
+          override def onCompleted(response: Response): Option[String] = {
+            if (response.getStatusCode >= 400)
+              None
+            else
+              Some(response.getResponseBody)
+          }
+        }).get(30, TimeUnit.SECONDS)
       }
-    }).get(30, TimeUnit.SECONDS)
-
+    } catch {
+      case ex : Exception => logger.error(s"Error while running YahooAdjustedClosePriceFetcher for $url", ex)
+        throw ex
+    }
   }
 }

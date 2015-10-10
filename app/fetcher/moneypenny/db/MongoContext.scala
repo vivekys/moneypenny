@@ -37,6 +37,10 @@ class MongoContext {
   lazy val yahooListOfScripsCollection = _db("yahooListOfScripsCollection")
   lazy val yahooListOfScripsStatsCollection = _db("yahooListOfScripsStatsCollection")
 
+  lazy val mfFundHouseCollection = _db("mfFundHouseCollection")
+  lazy val mfNAVCollection = _db("mfNAVCollection")
+  lazy val mfNAVStatsCollection = _db("mfNAVStatsCollection")
+
   lazy val yahooAdjustedClosePriceCollection = _db("YahooAdjustedClosePriceCollection")
   lazy val yahooAdjustedClosePriceStatsCollection = _db("YahooAdjustedClosePriceStatsCollection")
 

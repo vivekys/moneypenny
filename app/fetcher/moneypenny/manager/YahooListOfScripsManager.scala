@@ -3,9 +3,9 @@ package fetcher.moneypenny.manager
 import java.util.Calendar
 
 import com.moneypenny.db.MongoContext
+import com.moneypenny.util.RetryFunExecutor
 import fetcher.moneypenny.fetcher.YahooListOfScripsFetcher
 import fetcher.moneypenny.model._
-import org.joda.time.format.DateTimeFormat
 import org.quartz._
 import org.quartz.impl.StdSchedulerFactory
 import org.slf4j.LoggerFactory
@@ -41,8 +41,15 @@ class YahooListOfScripsManager extends Job {
 
     char.map( letter => {
       val parsedData = parse(yahooListOfScripsFetcher.fetchFor(letter))
-      yahooListOfScripsDAO.bulkUpdate(parsedData)
-      yahooListOfScripsStatsDAO.insert(YahooListOfScripsStats(YahooListOfScripsStatsKey(Calendar.getInstance().getTime), letter))
+      logger.info("Inserting " + parsedData.size + " yahooListOfScrips records")
+      val res0 = yahooListOfScripsDAO.bulkUpdate(parsedData)
+      val res1 = yahooListOfScripsStatsDAO.insert(YahooListOfScripsStats(
+        YahooListOfScripsStatsKey(Calendar.getInstance().getTime), letter))
+      logger.info("getInsertedCount - " + res0.getInsertedCount)
+      logger.info("getMatchedCount - " + res0.getMatchedCount)
+      logger.info("getModifiedCount - " + res0.getModifiedCount)
+      logger.info("getRemovedCount - " + res0.getRemovedCount)
+      logger.info("getUpserts - " + res0.getUpserts.size)
     })
 
   }
@@ -50,7 +57,9 @@ class YahooListOfScripsManager extends Job {
   override def execute(jobExecutionContext: JobExecutionContext): Unit = {
     try {
       logger.info("Running YahooListOfScripsManager")
-      insert
+      RetryFunExecutor.retry(3) {
+        insert
+      }
       logger.info("Completed YahooListOfScripsManager")
     } catch {
       case ex : Exception => logger.error("Error running YahooListOfScripsManager", ex)
@@ -81,7 +90,5 @@ object YahooListOfScripsManagerTest {
 
     Thread.sleep(90000000L * 1000L)
     sched.shutdown(true)
-
-
   }
 }
